@@ -45,6 +45,7 @@ function openEmployees() {
     }
 
     async function remove() {
+      if (WebSync.blocks('employees')) return
       if (!current) return UI.message('اختر موظفاً')
       const ok = await UI.dialog({ head: 'تأكيد الحذف', bodyHtml: `<div>حذف الموظف «${UI.esc(current.name_ar)}»؟</div>`, width: 340,
         buttons: [{ label: 'نعم', icon: 'ok', onClick: (d) => d.close(true) }, { label: 'لا', icon: 'cancel', onClick: (d) => d.close(false) }] })
@@ -137,6 +138,7 @@ function openEmployeeForm(emp, onSaved) {
     })
 
     async function save() {
+      if (WebSync.blocks('employees')) return
       const v = { ...e }
       form.querySelectorAll('[data-f]').forEach((i) => (v[i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 1 : 0) : i.value.trim()))
       if (!v.code) return UI.message('كود الموظف مطلوب')

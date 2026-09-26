@@ -16,4 +16,7 @@ contextBridge.exposeInMainWorld('bridge', {
   saveFile: (name, bytes, ext) => ipcRenderer.invoke('file:save', name, bytes, ext),
   savePdf: (name, html) => ipcRenderer.invoke('file:pdf', name, html),
   printHtml: (html) => ipcRenderer.invoke('print:html', html),
+  webConfig: () => ipcRenderer.invoke('web:config'),
+  webSetConfig: (cfg) => ipcRenderer.invoke('web:setConfig', cfg),
+  webCall: (method, p, body, override) => ipcRenderer.invoke('web:call', method, p, body, override),
 })

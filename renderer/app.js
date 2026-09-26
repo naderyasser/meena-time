@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '1.0.1'
+const VERSION = '1.1.0'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -23,7 +23,7 @@ const MENUS = [
     ['ترحيل الحركات', postPunches], ['الغاء ترحيل الحركات', openUnpost], ['الغاء جميع بيانات الموظف بالنظام', purgeEmployee],
   ] },
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
-  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings]] },
+  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings], ['الربط بالموقع', openWebLink]] },
   { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
   { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
 ]
@@ -216,4 +216,5 @@ async function restoreBackup() {
   await login()
   buildMenu()
   renderHome()
+  WebSync.init()
 })()

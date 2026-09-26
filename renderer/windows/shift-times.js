@@ -112,6 +112,7 @@ function openNormalTimes(g, onSaved) {
       }
     }
     async function save() {
+      if (WebSync.blocks('shift_groups')) return
       sync()
       for (const c of ['Y', 'R']) for (const r of state[c]) {
         if (r.is_off) continue
@@ -174,6 +175,7 @@ function openOpenTimes(g, onSaved) {
       tbody.querySelectorAll('.off, .ext').forEach((x) => x.addEventListener('change', () => { sync(); draw() }))
     }
     async function save() {
+      if (WebSync.blocks('shift_groups')) return
       sync()
       for (const c of ['Y', 'R']) for (const r of state[c]) {
         if (r.is_off) continue
@@ -258,6 +260,7 @@ function openRotationTimes(g, onSaved) {
     }
     const blankBlock = (b) => !b.work && !b.rest && !b.slots.some((s) => s && ORDER.some((f) => s[f]))
     async function save() {
+      if (WebSync.blocks('shift_groups')) return
       sync()
       const out = {}
       for (const c of ['Y', 'R']) {

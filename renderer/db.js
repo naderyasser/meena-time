@@ -138,6 +138,7 @@ const DB = {
       this.db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)', ['أ', ''])
     }
     this.migrateV2()
+    this.migrateV3()
   },
 
   // v2 (0.2.0): up to 4 «ورديات» per day + «شفت ممتد», open shifts, rotating
@@ -185,6 +186,13 @@ const DB = {
         SELECT id, shift_group_id, COALESCE(hire_date, '2000-01-01') FROM employees WHERE shift_group_id IS NOT NULL`)
       this.db.run("INSERT INTO meta (key, value) VALUES ('schema', '2') ON CONFLICT(key) DO UPDATE SET value = '2'")
     }
+  },
+
+  // v3 (1.1.0): link with the web version — each row pulled from the site keeps
+  // the site's document name in web_id; punches pushed to the site get it too.
+  migrateV3() {
+    const addCol = (t, c, def) => { if (!this.all(`PRAGMA table_info(${t})`).some((x) => x.name === c)) this.db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`) }
+    for (const t of ['departments', 'lists', 'projects', 'employee_groups', 'holidays', 'shift_groups', 'employees', 'leaves', 'permissions', 'punches']) addCol(t, 'web_id', 'TEXT')
   },
 
   audit(action, target, details = '') {

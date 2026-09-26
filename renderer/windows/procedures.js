@@ -55,6 +55,7 @@ async function storePunches(list, source, deviceId = null) {
   }
   DB.run('COMMIT')
   await DB.flush()
+  if (added && WebSync.linked) WebSync.sync({ quiet: true }) // send them to the site
   return `تمت قراءة ${list.length} حركة: جديدة ${added} · مكررة ${dup}` +
     (unknown ? ` · لموظفين غير معرّفين ${unknown}` : '') + (posted ? ` · في فترة مرحّلة ${posted}` : '')
 }
@@ -104,7 +105,7 @@ function openViewPunches() {
       <th style="width:100px">التاريخ</th><th style="width:70px">الوقت</th><th style="width:80px">المصدر</th></tr></thead><tbody></tbody></table></div>`)
     const count = UI.el('<div style="padding:2px 8px;font-size:12px"></div>')
     body.append(bar, filters, wrap, count)
-    const SRC = { device: 'جهاز', file: 'ملف', manual: 'يدوي' }
+    const SRC = { device: 'جهاز', file: 'ملف', manual: 'يدوي', web: 'الموقع' }
     const run = () => {
       const from = filters.querySelector('#vp-from').value, to = filters.querySelector('#vp-to').value, emp = filters.querySelector('#vp-emp').value
       const rows = DB.all(`SELECT p.*, e.name_ar FROM punches p LEFT JOIN employees e ON e.code = p.emp_code
@@ -141,7 +142,7 @@ function openEditPunches() {
       const tb = wrap.querySelector('tbody')
       tb.innerHTML = ''
       for (const r of rows) {
-        const tr = UI.el(`<tr><td class="sel"></td><td class="center">${r.ts.slice(11, 16)}</td><td class="center">${{ device: 'جهاز', file: 'ملف', manual: 'يدوي' }[r.source]}</td></tr>`)
+        const tr = UI.el(`<tr><td class="sel"></td><td class="center">${r.ts.slice(11, 16)}</td><td class="center">${{ device: 'جهاز', file: 'ملف', manual: 'يدوي', web: 'الموقع' }[r.source]}</td></tr>`)
         tr.onmousedown = () => { tb.querySelectorAll('tr').forEach((x) => x.classList.remove('current')); tr.classList.add('current'); current = r }
         tb.appendChild(tr)
       }
@@ -236,6 +237,7 @@ function openUnpost() {
 }
 
 async function purgeEmployee() {
+  if (WebSync.blocks('employees')) return
   const emps = empOptions()
   const id = await UI.dialog({
     head: 'الغاء جميع بيانات الموظف بالنظام', width: 460,

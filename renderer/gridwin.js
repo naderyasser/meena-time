@@ -94,6 +94,7 @@ function openGridWindow(cfg) {
     const focusFirst = () => tbody.querySelectorAll('tr')[current]?.querySelector('[data-f]')?.focus()
 
     async function save() {
+      if (WebSync.blocks(cfg.table)) return load()
       for (const r of rows) {
         if (r._state === 'deleted') continue
         for (const c of cols) {
@@ -124,6 +125,7 @@ function openGridWindow(cfg) {
     }
 
     async function remove() {
+      if (WebSync.blocks(cfg.table)) return
       const r = ctx.currentRow
       if (!r) return
       const block = cfg.beforeDelete?.(r)

@@ -228,3 +228,6 @@ body.pdf { background: #fff; overflow: visible; }
 .sel-pop .sel-opt:hover { background: #3a8ee6; color: #fff; }
 .sel-pop .sel-opt.on { background: #fff4df; }
 .sel-pop .sel-opt.on:hover { background: #3a8ee6; }
+
+/* «مرتبط بالموقع» status chip (bottom-left) — click to sync now */
+#sync-status { position: fixed; left: 8px; bottom: 6px; z-index: 90000; background: rgba(255,255,255,.9); border: 1px solid #9fb6cf; padding: 2px 10px; font-size: 12px; color: #1b3d8f; cursor: pointer; direction: rtl; border-radius: 2px; }

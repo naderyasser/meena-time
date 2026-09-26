@@ -64,7 +64,7 @@ check('caption: version matches package.json', (await p.locator('#caption-text')
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 4], ['أدوات', 5], ['مساعدة', 2]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 5], ['أدوات', 5], ['مساعدة', 2]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)

@@ -1,6 +1,6 @@
 // Electron main process: one window, the database file in the user's data
 // folder (no XAMPP, no fixed drive), and the licence check.
-const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, dialog, safeStorage } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { requestCode, verifyLicence } = require('./lib/license')
@@ -150,6 +150,49 @@ ipcMain.handle('file:pdf', async (e, name, html) => {
     return { ok: false, error: 'تعذّر إنشاء ملف PDF' }
   } finally {
     w.destroy()
+  }
+})
+
+// ── link with the web version (Frappe REST, token auth) ──
+// Kept in its own file (not the database) so backups never carry the API secret.
+const webPath = () => path.join(dataDir(), 'web-link.json')
+function readWeb() {
+  try {
+    const c = JSON.parse(fs.readFileSync(webPath(), 'utf8'))
+    c.secret = c.enc ? safeStorage.decryptString(Buffer.from(c.secret, 'base64')) : c.secret
+    return c
+  } catch { return null }
+}
+ipcMain.handle('web:config', () => { const c = readWeb(); return c ? { url: c.url, key: c.key, linked: true } : { linked: false } })
+ipcMain.handle('web:setConfig', (_e, cfg) => {
+  if (!cfg) { fs.rmSync(webPath(), { force: true }); return true }
+  const enc = safeStorage.isEncryptionAvailable()
+  const secret = enc ? safeStorage.encryptString(cfg.secret).toString('base64') : cfg.secret
+  fs.mkdirSync(dataDir(), { recursive: true })
+  fs.writeFileSync(webPath(), JSON.stringify({ url: cfg.url.replace(/\/+$/, ''), key: cfg.key, secret, enc }), { mode: 0o600 })
+  return true
+})
+// method GET|POST, p = "/api/..." (query already encoded), body = JSON-able
+ipcMain.handle('web:call', async (_e, method, p, body, override) => {
+  const c = override || readWeb()
+  if (!c) return { error: 'التطبيق غير مرتبط بالموقع' }
+  try {
+    const res = await fetch(c.url.replace(/\/+$/, '') + p, {
+      method, signal: AbortSignal.timeout(30000),
+      headers: { Authorization: `token ${c.key}:${c.secret}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    const text = await res.text()
+    let data = null
+    try { data = JSON.parse(text) } catch {}
+    if (!res.ok) {
+      let msg = data?.exception || data?.message || data?._server_messages || text.slice(0, 200)
+      try { msg = JSON.parse(JSON.parse(data._server_messages)[0]).message } catch {}
+      return { error: res.status === 401 || res.status === 403 ? 'بيانات الربط غير صحيحة أو لا تملك صلاحية' : String(msg).replace(/<[^>]+>/g, ''), status: res.status }
+    }
+    return { data: data?.data ?? data?.message ?? data }
+  } catch (err) {
+    return { error: /timeout|abort/i.test(err.name + err.message) ? 'انتهت مهلة الاتصال بالموقع' : 'تعذّر الاتصال بالموقع — تأكد من الإنترنت ورابط الموقع', offline: true }
   }
 })
 
