@@ -5,6 +5,11 @@ const path = require('path')
 const fs = require('fs')
 const { requestCode, verifyLicence } = require('./lib/license')
 
+// Demo build: demo/demo-data.sqlite is bundled (tools/build-demo.sh) → own data
+// folder, starts with that data, all features unlocked. Normal builds have no demo/.
+const DEMO_DB = path.join(__dirname, 'demo', 'demo-data.sqlite')
+const DEMO = fs.existsSync(DEMO_DB)
+if (DEMO) app.setPath('userData', path.join(app.getPath('appData'), 'Meena Time Demo'))
 const dataDir = () => app.getPath('userData')
 // one database for all years (v1.0); `name` = 'main', or a 4-digit year for a v0.x per-year file
 const dbPath = (name) => path.join(dataDir(), name === 'main' ? 'meena-time.sqlite' : `meena-time-${name}.sqlite`)
@@ -46,6 +51,7 @@ ipcMain.handle('db:save', (_e, year, bytes) => {
   return true
 })
 ipcMain.handle('licence:status', () => {
+  if (DEMO) return { requestCode: requestCode(), ok: true, edition: 'Demo' }
   const code = fs.existsSync(licencePath()) ? fs.readFileSync(licencePath(), 'utf8') : ''
   return { requestCode: requestCode(), ...verifyLicence(code) }
 })
@@ -159,5 +165,12 @@ ipcMain.handle('print:html', async (e, html) => {
   }
 })
 
-app.whenReady().then(() => { dailyBackup(); createWindow() })
+app.whenReady().then(() => {
+  if (DEMO && !fs.existsSync(dbPath('main'))) {
+    fs.mkdirSync(dataDir(), { recursive: true })
+    fs.copyFileSync(DEMO_DB, dbPath('main'))
+  }
+  dailyBackup()
+  createWindow()
+})
 app.on('window-all-closed', () => app.quit())

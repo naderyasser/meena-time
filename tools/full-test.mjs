@@ -60,6 +60,7 @@ await snap('home')
 check('home: 4 tiles', (await p.locator('.tile').count()) === 4)
 check('home: trial banner shown when unregistered', await p.locator('.trial').isVisible())
 check('caption: Unregistered', /Unregistered/.test(await p.locator('#caption-text').textContent()))
+check('caption: version matches package.json', (await p.locator('#caption-text').textContent()).includes(`Ver. ${JSON.parse(fs.readFileSync(`${ROOT}/package.json`, 'utf8')).version} `))
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
@@ -361,7 +362,7 @@ await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p
 await menu('الإعدادات', 'اعدادات النظام'); check('system settings: shows data folder', (await p.locator('.dlg input').first().inputValue()).includes('mt-fulltest')); await snap('system'); await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
 await menu('أدوات', 'نسخة احتياطية'); check('backup: file written', /تم حفظ/.test(await okMsg()) && fs.existsSync(`${UD}/manual-backup.sqlite`))
 check('backup: automatic daily backup exists', fs.readdirSync(`${UD}/backups`).length >= 0)
-await menu('مساعدة', 'عن البرنامج'); check('about: version', /1\.0\.0/.test(await okMsg()))
+await menu('مساعدة', 'عن البرنامج'); check('about: version', (await okMsg()).includes(JSON.parse(fs.readFileSync(`${ROOT}/package.json`, 'utf8')).version))
 await menu('مساعدة', 'دليل الاستخدام'); w = win('دليل الاستخدام')
 check('guide: opens with all sections', (await w.locator('.guide section').count()) >= 10); await snap('guide')
 await w.locator('.guide nav a').last().click(); await p.waitForTimeout(300); await closeWin(w)
