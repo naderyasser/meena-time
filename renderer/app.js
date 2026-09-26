@@ -11,8 +11,9 @@ const soon = (name) => () => UI.message(`«${name}» — قيد الإنشاء`)
 // Menu layout transcribed from the client's Apex Time video (2026-09-24).
 const MENUS = [
   { label: 'البيانات الأساسية', icon: 'm_base', items: [
-    ['قوائم البرنامج'], ['الإدارات والأقسام'], ['المشاريع'], ['مواعيد العمل', openShiftGroups], ['الموظفين'],
-    ['مجموعات الموظفين'], ['تعريف الأجهزة'], ['العطلات الرسمية'],
+    ['قوائم البرنامج', openLists], ['الإدارات والأقسام', openDepartments], ['المشاريع', openProjects],
+    ['مواعيد العمل', openShiftGroups], ['الموظفين', openEmployees], ['مجموعات الموظفين', openEmployeeGroups],
+    ['تعريف الأجهزة', openDevices], ['العطلات الرسمية', openHolidays],
   ] },
   { label: 'الإجراءات', icon: 'm_proc', items: [
     ['قراءة الحركات (شبكة - ملف)'], ['الغاء الحركات المسحوبة خلال فترة'], ['عرض الحركات'], '-',
@@ -82,7 +83,7 @@ function renderHome() {
         <div class="tile" data-t="setup">${ICONS.tools}<span>التجهيز</span></div>
       </div></div>`)
   home.querySelector('[data-t=setup]').onclick = openShiftGroups
-  home.querySelector('[data-t=users]').onclick = soon('المستخدمين')
+  home.querySelector('[data-t=users]').onclick = openEmployees
   home.querySelector('[data-t=reports]').onclick = soon('التقارير')
   home.querySelector('[data-t=proc]').onclick = soon('الإجراءات')
   desk.prepend(home)

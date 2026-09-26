@@ -132,3 +132,18 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 12px; }
 .dlg .foot { height: 6px; background: #f08a24; }
 .dlg .err { color: #c0271f; font-size: 12px; padding: 0 12px 8px; min-height: 16px; }
 .lang { display: flex; gap: 16px; align-items: center; font-size: 12px; }
+
+/* ── grid cell editors ────────────────────────────────────── */
+.grid td select.cell-select, .grid td input.cell-date { width: 100%; border: 0; background: transparent; font: inherit; }
+.grid td input.center { text-align: center; }
+.grid td input:disabled { background: #f0f0f0; }
+
+/* ── form windows (employee) ─────────────────────────────── */
+.form { flex: 1; overflow: auto; padding: 6px 8px; }
+.form fieldset { border: 1px solid #b7bfc7; margin: 0 0 8px; padding: 6px 10px 8px; background: #fafbfc; }
+.form legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; }
+.form .grid2 { display: grid; grid-template-columns: 170px 1fr 150px 1fr; gap: 5px 10px; align-items: center; }
+.form .grid2 label { color: #1b3d8f; font-weight: bold; font-size: 12px; }
+.form input[type=text], .form input[type=date], .form select { font: inherit; height: 23px; padding: 1px 4px; border: 1px solid #a9b3bd; width: 100%; background: #fff; }
+.form .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.form .chk { font-size: 12px; display: flex; align-items: center; gap: 6px; }
