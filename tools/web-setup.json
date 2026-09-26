@@ -1,0 +1,2430 @@
+{
+ "company": [
+  "شركة عثمان وعبد الرحمن القرعاوي التجارية"
+ ],
+ "departments": [
+  {
+   "name": "جميع الاقسام",
+   "department_name": "جميع الاقسام",
+   "parent_department": "",
+   "is_group": 1
+  },
+  {
+   "name": "الحسابات - القرعاوي 1",
+   "department_name": "الحسابات",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "التسويق - القرعاوي 1",
+   "department_name": "التسويق",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "مبيعات - القرعاوي 1",
+   "department_name": "مبيعات",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "الشراء - القرعاوي 1",
+   "department_name": "الشراء",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "العمليات - القرعاوي 1",
+   "department_name": "العمليات",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "الإنتاج - القرعاوي 1",
+   "department_name": "الإنتاج",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "ارسال - القرعاوي 1",
+   "department_name": "ارسال",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "خدمة العملاء - القرعاوي 1",
+   "department_name": "خدمة العملاء",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "الموارد البشرية - القرعاوي 1",
+   "department_name": "الموارد البشرية",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "الإدارة - القرعاوي 1",
+   "department_name": "الإدارة",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "إدارة الجودة - القرعاوي 1",
+   "department_name": "إدارة الجودة",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "البحث و التطوير - القرعاوي 1",
+   "department_name": "البحث و التطوير",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "قانوني - القرعاوي 1",
+   "department_name": "قانوني",
+   "parent_department": "جميع الاقسام",
+   "is_group": 0
+  },
+  {
+   "name": "All Departments - None",
+   "department_name": "All Departments",
+   "parent_department": "جميع الاقسام",
+   "is_group": 1
+  }
+ ],
+ "designations": [
+  "مساعد إداري",
+  "مسؤول إداري",
+  "محلل",
+  "مساعد",
+  "محلل أعمال",
+  "مدير تطوير الأعمال",
+  "استشاري",
+  "الرئيس التنفيذي",
+  "المدير المالي",
+  "مدير العمليات",
+  "مدير التقنية",
+  "ممثل خدمة العملاء",
+  "مصمم",
+  "مهندس",
+  "مساعد تنفيذي",
+  "مدير مالي",
+  "مدير الموارد البشرية",
+  "رئيس التسويق والمبيعات",
+  "مدير",
+  "العضو المنتدب",
+  "مدير تسويق",
+  "أخصائي تسويق",
+  "رئيس",
+  "مدير منتج",
+  "مدير مشروع",
+  "باحث",
+  "مندوب مبيعات",
+  "سكرتير",
+  "مطوّر برمجيات",
+  "نائب الرئيس"
+ ],
+ "shift_types": [
+  {
+   "name": "شفت العمل في المنزل",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": null,
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "الفترة الصباحية",
+   "start_time": "8:00:00",
+   "end_time": "16:00:00",
+   "late_entry_grace_period": 15,
+   "early_exit_grace_period": 15,
+   "begin_check_in_before_shift_start_time": 60,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": "إجازات ٢٠٢٦ (تجريبي)",
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": null,
+   "custom_name_en": null,
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "الفترة المسائية",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 60,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": "إجازات ٢٠٢٦ (تجريبي)",
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": null,
+   "custom_name_en": null,
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "دوام تجربة",
+   "start_time": "7:00:00",
+   "end_time": "12:00:00",
+   "late_entry_grace_period": 10,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": "17:31:29.273664",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": [
+    {
+     "idx": 1,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 2,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 3,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 4,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 5,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 6,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 7,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 8,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 9,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 10,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 11,
+     "calendar_type": "Year",
+     "day": "Friday",
+     "window_no": 1,
+     "start_in": "8:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 1,
+     "check_out": "13:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 12,
+     "calendar_type": "Year",
+     "day": "Friday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 1,
+     "check_out": "23:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 13,
+     "calendar_type": "Year",
+     "day": "Saturday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "7:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "12:00:00",
+     "early_out_min": 0,
+     "check_out": "12:00:00",
+     "end_out": "12:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    },
+    {
+     "idx": 14,
+     "calendar_type": "Year",
+     "day": "Saturday",
+     "window_no": 2,
+     "start_in": "16:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "22:00:00",
+     "early_out_min": 0,
+     "check_out": "22:00:00",
+     "end_out": "22:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:12:36.356716"
+    }
+   ]
+  },
+  {
+   "name": "ip",
+   "start_time": "0:00:00",
+   "end_time": "23:59:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Open",
+   "custom_day_end_time": "21:07:19.212909",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "uu",
+   "start_time": "0:00:00",
+   "end_time": "23:59:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Open",
+   "custom_day_end_time": "21:30:52.855945",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "565652",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 60,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": null,
+   "custom_shift_kind": "Rotational",
+   "custom_day_end_time": "21:34:03.545914",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "دوام 2026",
+   "start_time": "8:00:00",
+   "end_time": "12:00:00",
+   "late_entry_grace_period": 10,
+   "early_exit_grace_period": 10,
+   "begin_check_in_before_shift_start_time": 120,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": null,
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": "13:08:28.224536",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": [
+    {
+     "idx": 1,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 2,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 3,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 4,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 5,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 6,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 7,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 8,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 9,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    },
+    {
+     "idx": 10,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "13:22:25.126766"
+    }
+   ]
+  },
+  {
+   "name": "دوام مفتوح 2027",
+   "start_time": "10:00:00",
+   "end_time": "9:59:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Open",
+   "custom_day_end_time": "13:28:40.053018",
+   "custom_name_en": "دوام مفتوح 2027",
+   "custom_open_hours": 8.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": [
+    {
+     "idx": 1,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 1,
+     "start_in": "13:32:52.168828",
+     "check_in": "13:32:52.168917",
+     "late_allowance_min": 0,
+     "end_in": "13:32:52.168940",
+     "start_out": "13:32:52.168961",
+     "early_out_min": 0,
+     "check_out": "13:32:52.168977",
+     "end_out": "13:32:52.168992",
+     "extended": 0,
+     "required_minutes": 480,
+     "extends_next_day": 1,
+     "day_end_time": "10:00:00"
+    },
+    {
+     "idx": 2,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 1,
+     "start_in": "13:32:52.168828",
+     "check_in": "13:32:52.168917",
+     "late_allowance_min": 0,
+     "end_in": "13:32:52.168940",
+     "start_out": "13:32:52.168961",
+     "early_out_min": 0,
+     "check_out": "13:32:52.168977",
+     "end_out": "13:32:52.168992",
+     "extended": 0,
+     "required_minutes": 480,
+     "extends_next_day": 1,
+     "day_end_time": "10:00:00"
+    },
+    {
+     "idx": 3,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 1,
+     "start_in": "13:32:52.168828",
+     "check_in": "13:32:52.168917",
+     "late_allowance_min": 0,
+     "end_in": "13:32:52.168940",
+     "start_out": "13:32:52.168961",
+     "early_out_min": 0,
+     "check_out": "13:32:52.168977",
+     "end_out": "13:32:52.168992",
+     "extended": 0,
+     "required_minutes": 480,
+     "extends_next_day": 1,
+     "day_end_time": "10:00:00"
+    },
+    {
+     "idx": 4,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 1,
+     "start_in": "13:32:52.168828",
+     "check_in": "13:32:52.168917",
+     "late_allowance_min": 0,
+     "end_in": "13:32:52.168940",
+     "start_out": "13:32:52.168961",
+     "early_out_min": 0,
+     "check_out": "13:32:52.168977",
+     "end_out": "13:32:52.168992",
+     "extended": 0,
+     "required_minutes": 480,
+     "extends_next_day": 1,
+     "day_end_time": "10:00:00"
+    },
+    {
+     "idx": 5,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 1,
+     "start_in": "13:32:52.168828",
+     "check_in": "13:32:52.168917",
+     "late_allowance_min": 0,
+     "end_in": "13:32:52.168940",
+     "start_out": "13:32:52.168961",
+     "early_out_min": 0,
+     "check_out": "13:32:52.168977",
+     "end_out": "13:32:52.168992",
+     "extended": 0,
+     "required_minutes": 480,
+     "extends_next_day": 1,
+     "day_end_time": "10:00:00"
+    }
+   ]
+  },
+  {
+   "name": "دوام متغير 2026",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Rotational",
+   "custom_day_end_time": "18:17:10.261567",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "دوام متغير 2027",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Rotational",
+   "custom_day_end_time": "14:34:46.911155",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": null,
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "ورديات متغيرة",
+   "start_time": "17:41:50.866374",
+   "end_time": "17:41:50.866520",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 60,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": null,
+   "custom_shift_kind": "Rotational",
+   "custom_day_end_time": "17:41:50.866575",
+   "custom_name_en": null,
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": "",
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "ورديات متغيرة - مجموعة 1 - فترة 1",
+   "start_time": "8:00:00",
+   "end_time": "12:00:00",
+   "late_entry_grace_period": 10,
+   "early_exit_grace_period": 10,
+   "begin_check_in_before_shift_start_time": 120,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": null,
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": "17:41:51.005011",
+   "custom_name_en": null,
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 1,
+   "custom_rotational_group": "nN1J2fmizk",
+   "custom_rotational_tab": "Year",
+   "custom_rotational_block_index": 1,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": [
+    {
+     "idx": 1,
+     "calendar_type": "Year",
+     "day": "Saturday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 2,
+     "calendar_type": "Year",
+     "day": "Saturday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 3,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 4,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 5,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 6,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 7,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 8,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 9,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 10,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 11,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 12,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 13,
+     "calendar_type": "Year",
+     "day": "Friday",
+     "window_no": 1,
+     "start_in": "6:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "8:30:00",
+     "start_out": "11:30:00",
+     "early_out_min": 10,
+     "check_out": "12:00:00",
+     "end_out": "13:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    },
+    {
+     "idx": 14,
+     "calendar_type": "Year",
+     "day": "Friday",
+     "window_no": 2,
+     "start_in": "15:00:00",
+     "check_in": "16:00:00",
+     "late_allowance_min": 10,
+     "end_in": "16:30:00",
+     "start_out": "21:30:00",
+     "early_out_min": 10,
+     "check_out": "22:00:00",
+     "end_out": "23:00:00",
+     "extended": 0,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "17:41:51.050562"
+    }
+   ]
+  },
+  {
+   "name": "دوام متغير 2028",
+   "start_time": "0:00:00",
+   "end_time": "0:01:00",
+   "late_entry_grace_period": 0,
+   "early_exit_grace_period": 0,
+   "begin_check_in_before_shift_start_time": 0,
+   "allow_check_out_after_shift_end_time": 0,
+   "holiday_list": null,
+   "custom_shift_kind": "Rotational",
+   "custom_day_end_time": "18:57:58.050186",
+   "custom_name_en": "",
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 0,
+   "custom_rotational_group": null,
+   "custom_rotational_tab": "",
+   "custom_rotational_block_index": 0,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": []
+  },
+  {
+   "name": "دوام متغير 2028 - مجموعة دوام 1 - فترة 1",
+   "start_time": "8:00:00",
+   "end_time": "17:00:00",
+   "late_entry_grace_period": 10,
+   "early_exit_grace_period": 10,
+   "begin_check_in_before_shift_start_time": 60,
+   "allow_check_out_after_shift_end_time": 60,
+   "holiday_list": null,
+   "custom_shift_kind": "Normal",
+   "custom_day_end_time": "19:07:21.754488",
+   "custom_name_en": null,
+   "custom_open_hours": 0.0,
+   "custom_is_rotational_internal": 1,
+   "custom_rotational_group": "TPBDXagRMn",
+   "custom_rotational_tab": "Year",
+   "custom_rotational_block_index": 1,
+   "custom_rotational_version": 1,
+   "custom_enable_auto_checkout": 1,
+   "custom_day_windows": [
+    {
+     "idx": 1,
+     "calendar_type": "Year",
+     "day": "Saturday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 2,
+     "calendar_type": "Year",
+     "day": "Sunday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 3,
+     "calendar_type": "Year",
+     "day": "Monday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 4,
+     "calendar_type": "Year",
+     "day": "Tuesday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 5,
+     "calendar_type": "Year",
+     "day": "Wednesday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 6,
+     "calendar_type": "Year",
+     "day": "Thursday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    },
+    {
+     "idx": 7,
+     "calendar_type": "Year",
+     "day": "Friday",
+     "window_no": 1,
+     "start_in": "7:00:00",
+     "check_in": "8:00:00",
+     "late_allowance_min": 10,
+     "end_in": "9:00:00",
+     "start_out": "16:00:00",
+     "early_out_min": 10,
+     "check_out": "17:00:00",
+     "end_out": "18:00:00",
+     "extended": 1,
+     "required_minutes": 0,
+     "extends_next_day": 0,
+     "day_end_time": "19:07:21.764361"
+    }
+   ]
+  }
+ ],
+ "holidays": [
+  {
+   "list": "default holiday list",
+   "weekly_off": "Friday",
+   "days": []
+  },
+  {
+   "list": "اجازات",
+   "weekly_off": "Friday",
+   "days": [
+    [
+     "2026-01-02",
+     "Friday",
+     1
+    ],
+    [
+     "2026-01-03",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-01-09",
+     "Friday",
+     1
+    ],
+    [
+     "2026-01-10",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-01-16",
+     "Friday",
+     1
+    ],
+    [
+     "2026-01-17",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-01-23",
+     "Friday",
+     1
+    ],
+    [
+     "2026-01-24",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-01-30",
+     "Friday",
+     1
+    ],
+    [
+     "2026-01-31",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-02-06",
+     "Friday",
+     1
+    ],
+    [
+     "2026-02-07",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-02-13",
+     "Friday",
+     1
+    ],
+    [
+     "2026-02-14",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-02-20",
+     "Friday",
+     1
+    ],
+    [
+     "2026-02-21",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-02-27",
+     "Friday",
+     1
+    ],
+    [
+     "2026-02-28",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-03-06",
+     "Friday",
+     1
+    ],
+    [
+     "2026-03-07",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-03-13",
+     "Friday",
+     1
+    ],
+    [
+     "2026-03-14",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-03-20",
+     "Friday",
+     1
+    ],
+    [
+     "2026-03-21",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-03-27",
+     "Friday",
+     1
+    ],
+    [
+     "2026-03-28",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-04-03",
+     "Friday",
+     1
+    ],
+    [
+     "2026-04-04",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-04-10",
+     "Friday",
+     1
+    ],
+    [
+     "2026-04-11",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-04-17",
+     "Friday",
+     1
+    ],
+    [
+     "2026-04-18",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-04-24",
+     "Friday",
+     1
+    ],
+    [
+     "2026-04-25",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-05-01",
+     "Friday",
+     1
+    ],
+    [
+     "2026-05-02",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-05-08",
+     "Friday",
+     1
+    ],
+    [
+     "2026-05-09",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-05-15",
+     "Friday",
+     1
+    ],
+    [
+     "2026-05-16",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-05-22",
+     "Friday",
+     1
+    ],
+    [
+     "2026-05-23",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-05-29",
+     "Friday",
+     1
+    ],
+    [
+     "2026-05-30",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-06-05",
+     "Friday",
+     1
+    ],
+    [
+     "2026-06-06",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-06-12",
+     "Friday",
+     1
+    ],
+    [
+     "2026-06-13",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-06-19",
+     "Friday",
+     1
+    ],
+    [
+     "2026-06-20",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-06-26",
+     "Friday",
+     1
+    ],
+    [
+     "2026-06-27",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-07-03",
+     "Friday",
+     1
+    ],
+    [
+     "2026-07-04",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-07-10",
+     "Friday",
+     1
+    ],
+    [
+     "2026-07-11",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-07-17",
+     "Friday",
+     1
+    ],
+    [
+     "2026-07-18",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-07-24",
+     "Friday",
+     1
+    ],
+    [
+     "2026-07-25",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-07-31",
+     "Friday",
+     1
+    ],
+    [
+     "2026-08-01",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-08-07",
+     "Friday",
+     1
+    ],
+    [
+     "2026-08-08",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-08-14",
+     "Friday",
+     1
+    ],
+    [
+     "2026-08-15",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-08-21",
+     "Friday",
+     1
+    ],
+    [
+     "2026-08-22",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-08-28",
+     "Friday",
+     1
+    ],
+    [
+     "2026-08-29",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-09-04",
+     "Friday",
+     1
+    ],
+    [
+     "2026-09-05",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-09-11",
+     "Friday",
+     1
+    ],
+    [
+     "2026-09-12",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-09-18",
+     "Friday",
+     1
+    ],
+    [
+     "2026-09-19",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-09-25",
+     "Friday",
+     1
+    ],
+    [
+     "2026-09-26",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-10-02",
+     "Friday",
+     1
+    ],
+    [
+     "2026-10-03",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-10-09",
+     "Friday",
+     1
+    ],
+    [
+     "2026-10-10",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-10-16",
+     "Friday",
+     1
+    ],
+    [
+     "2026-10-17",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-10-23",
+     "Friday",
+     1
+    ],
+    [
+     "2026-10-24",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-10-30",
+     "Friday",
+     1
+    ],
+    [
+     "2026-10-31",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-11-06",
+     "Friday",
+     1
+    ],
+    [
+     "2026-11-07",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-11-13",
+     "Friday",
+     1
+    ],
+    [
+     "2026-11-14",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-11-20",
+     "Friday",
+     1
+    ],
+    [
+     "2026-11-21",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-11-27",
+     "Friday",
+     1
+    ],
+    [
+     "2026-11-28",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-12-04",
+     "Friday",
+     1
+    ],
+    [
+     "2026-12-05",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-12-11",
+     "Friday",
+     1
+    ],
+    [
+     "2026-12-12",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-12-18",
+     "Friday",
+     1
+    ],
+    [
+     "2026-12-19",
+     "Saturday",
+     1
+    ],
+    [
+     "2026-12-25",
+     "Friday",
+     1
+    ],
+    [
+     "2026-12-26",
+     "Saturday",
+     1
+    ]
+   ]
+  },
+  {
+   "list": "إجازات ٢٠٢٦ (تجريبي)",
+   "weekly_off": "",
+   "days": [
+    [
+     "2026-01-02",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-03",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-09",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-10",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-16",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-17",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-23",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-24",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-30",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-01-31",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-06",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-07",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-13",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-14",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-20",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-21",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-27",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-02-28",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-06",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-07",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-13",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-14",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-20",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-21",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-27",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-03-28",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-03",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-04",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-10",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-11",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-17",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-18",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-24",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-04-25",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-01",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-02",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-08",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-09",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-15",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-16",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-22",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-23",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-29",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-05-30",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-05",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-06",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-12",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-13",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-19",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-20",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-26",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-06-27",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-03",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-04",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-10",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-11",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-17",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-18",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-24",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-25",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-07-31",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-01",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-07",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-08",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-14",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-15",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-21",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-22",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-28",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-08-29",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-04",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-05",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-11",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-12",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-18",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-19",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-23",
+     "اليوم الوطني",
+     0
+    ],
+    [
+     "2026-09-25",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-09-26",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-02",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-03",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-09",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-10",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-16",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-17",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-23",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-24",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-30",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-10-31",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-06",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-07",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-13",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-14",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-20",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-21",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-27",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-11-28",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-04",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-05",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-11",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-12",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-18",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-19",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-25",
+     "عطلة نهاية الأسبوع",
+     1
+    ],
+    [
+     "2026-12-26",
+     "عطلة نهاية الأسبوع",
+     1
+    ]
+   ]
+  },
+  {
+   "list": "عطلة تجربة 1789805531355",
+   "weekly_off": "",
+   "days": []
+  }
+ ],
+ "leave_types": [
+  "Casual Leave",
+  "Compensatory Off",
+  "Sick Leave",
+  "Privilege Leave",
+  "Leave Without Pay",
+  "Unpaid Leave",
+  "Annual Leave",
+  "Attendance Incentive"
+ ]
+}
