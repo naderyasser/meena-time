@@ -106,6 +106,23 @@ await p.evaluate(() => storePunches([{ code: '1002', ts: '2026-09-23 08:00:00' }
 await p.waitForTimeout(1500)
 check('file import → pushed to the site', mock.posted.some((r) => r.employee === 'HR-EMP-00002' && r.time === '2026-09-23 08:00:00'))
 
+// ── site demands GPS (like tamken3): REST push fails → reported, punch kept for later ──
+mock.opts.geo = true
+await p.evaluate(() => storePunches([{ code: '1001', ts: '2026-09-24 08:00:00' }], 'manual'))
+await p.waitForTimeout(1500)
+check('geo site, no endpoint: punch not sent, kept local', !mock.posted.some((r) => r.time === '2026-09-24 08:00:00') && (await n("SELECT COUNT(*) n FROM punches WHERE ts = '2026-09-24 08:00:00' AND web_id IS NULL")) === 1)
+check('geo site: failure shown on the status chip', /لم تُرفع 1 حركة/.test(await p.locator('#sync-status').textContent()))
+await p.evaluate(() => WebSync.sync())
+check('geo site: failure reason in the sync message', /لم تُرفع 1 حركة: .*Latitude/.test(await okMsg()))
+// ── desktop endpoint installed: the waiting punch goes up through it ──
+mock.opts.method = true
+await p.evaluate(() => WebSync.sync({ quiet: true }))
+check('endpoint: waiting punch sent', mock.posted.some((r) => r.employee === 'HR-EMP-00001' && r.time === '2026-09-24 08:00:00' && r.device_id === 'Meena Time'))
+check('endpoint: punch linked, chip clear', (await n("SELECT COUNT(*) n FROM punches WHERE ts = '2026-09-24 08:00:00' AND web_id LIKE 'CHK-%'")) === 1 && !/لم تُرفع/.test(await p.locator('#sync-status').textContent()))
+const before2 = mock.posted.length
+await p.evaluate(() => WebSync.sync({ quiet: true }))
+check('endpoint: nothing re-sent', mock.posted.length === before2)
+
 // ── locked while linked ──
 await menu('البيانات الأساسية', 'الإدارات والأقسام')
 const w = p.locator('.win', { has: p.locator('.cap', { hasText: 'الإدارات والأقسام' }) }).last()

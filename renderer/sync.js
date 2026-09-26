@@ -70,8 +70,9 @@ const WebSync = {
       this.setMeta('web_last_sync', `${Engine.today()} ${new Date().toTimeString().slice(0, 8)}`)
       DB.audit('مزامنة مع الموقع', '', `${res.employees} موظف، ${res.punches} حركة جديدة، ${pushed} حركة مرفوعة`)
       await DB.flush()
-      this.showStatus()
-      if (!quiet) UI.message(`تمت المزامنة: ${res.employees} موظف، ${res.groups} دوام، ${res.punches} حركة جديدة من الموقع، ${pushed} حركة مرفوعة للموقع`)
+      const failNote = this.pushFailed ? ` — لم تُرفع ${this.pushFailed} حركة: ${this.pushError}` : ''
+      this.showStatus(this.pushFailed ? `مرتبط بالموقع · آخر مزامنة ${this.meta('web_last_sync').slice(0, 16)} · لم تُرفع ${this.pushFailed} حركة` : undefined)
+      if (!quiet) UI.message(`تمت المزامنة: ${res.employees} موظف، ${res.groups} دوام، ${res.punches} حركة جديدة من الموقع، ${pushed} حركة مرفوعة للموقع${failNote}`)
       return res
     } catch (e) {
       try { DB.run('ROLLBACK') } catch {}
@@ -110,16 +111,37 @@ const WebSync = {
   codeOf: (e) => String(e.attendance_device_id || e.name).trim(),
 
   // ── local punches → site (device / file / manual, not yet sent) ──
+  // Preferred: the site's desktop endpoint (server/desktop_sync.py — stores them
+  // like device punches, no GPS needed). Sites without it: plain REST inserts.
+  PUSH_METHOD: '/api/method/base_meena.biometric_management.desktop_sync.push_checkins',
   async push(empByCode) {
     const rows = DB.all("SELECT id, emp_code, ts FROM punches WHERE web_id IS NULL AND source <> 'web' ORDER BY ts LIMIT 5000")
+      .filter((r) => empByCode[r.emp_code]) // employees not on the site (yet) stay local
     let n = 0
-    for (const r of rows) {
-      const employee = empByCode[r.emp_code]
-      if (!employee) continue // employee not on the site (yet): stays local
-      const res = await window.bridge.webCall('POST', '/api/resource/Employee%20Checkin', { employee, time: r.ts, device_id: 'Meena Time', custom_client_ref: `mt:${r.emp_code}:${r.ts}` })
-      if (res.offline) throw new Error(res.error)
-      if (res.data?.name) { DB.run('UPDATE punches SET web_id = ? WHERE id = ?', [res.data.name, r.id]); n++ }
-      else if (/same timestamp|already has a log/i.test(res.error || '')) DB.run("UPDATE punches SET web_id = 'dup' WHERE id = ?", [r.id])
+    this.pushFailed = 0
+    this.pushError = ''
+    const fail = (err) => { this.pushFailed++; this.pushError ||= err }
+    const done = (r, name) => { DB.run('UPDATE punches SET web_id = ? WHERE id = ?', [name, r.id]); n++ }
+    let useMethod = true // checked every round: installing the endpoint takes effect without a restart
+    for (let i = 0; i < rows.length; i += 200) {
+      const batch = rows.slice(i, i + 200)
+      if (useMethod) {
+        const res = await window.bridge.webCall('POST', this.PUSH_METHOD, { punches: batch.map((r) => ({ employee: empByCode[r.emp_code], time: r.ts })) })
+        if (res.offline) throw new Error(res.error)
+        if (!res.error) {
+          res.data.forEach((x, j) => (x.name ? done(batch[j], x.name) : fail(x.error)))
+          continue
+        }
+        if (res.status === 404 || /not found|no module|has no attribute|not whitelisted/i.test(res.error)) useMethod = false
+        else { batch.forEach(() => fail(res.error)); continue }
+      }
+      for (const r of batch) {
+        const res = await window.bridge.webCall('POST', '/api/resource/Employee%20Checkin', { employee: empByCode[r.emp_code], time: r.ts, device_id: 'Meena Time', custom_client_ref: `meena-time:${empByCode[r.emp_code]}:${r.ts.replace(/\D/g, '')}` })
+        if (res.offline) throw new Error(res.error)
+        if (res.data?.name) done(r, res.data.name)
+        else if (/same timestamp|already has a log/i.test(res.error || '')) DB.run("UPDATE punches SET web_id = 'dup' WHERE id = ?", [r.id])
+        else fail(res.error)
+      }
     }
     return n
   },

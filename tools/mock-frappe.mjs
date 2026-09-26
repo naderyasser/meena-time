@@ -47,11 +47,31 @@ export function start(port = 8765) {
   }
   let seq = 100
   const posted = []
+  // switches for tests: geo = the site demands GPS on REST checkins (like tamken3);
+  // method = server/desktop_sync.py is installed
+  const opts = { geo: false, method: false }
   const server = http.createServer((req, res) => {
     const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)) }
     if (req.headers.authorization !== 'token k:s') return send(401, { exc_type: 'AuthenticationError' })
     const u = new URL(req.url, 'http://x')
     if (u.pathname === '/api/method/frappe.auth.get_logged_user') return send(200, { message: 'sync@test' })
+    if (u.pathname === '/api/method/base_meena.biometric_management.desktop_sync.push_checkins') {
+      if (!opts.method) return send(404, { exc_type: 'DoesNotExistError', exception: "ModuleNotFoundError: No module named 'base_meena.biometric_management.desktop_sync'" })
+      let body = ''
+      req.on('data', (c) => (body += c))
+      req.on('end', () => {
+        const out = JSON.parse(body).punches.map((p) => {
+          if (!db.Employee.some((e) => e.name === p.employee)) return { ...p, error: 'employee not found' }
+          const had = db['Employee Checkin'].find((r) => r.employee === p.employee && String(r.time).slice(0, 19) === p.time)
+          if (had) return { ...p, name: had.name }
+          const row = { employee: p.employee, time: p.time, device_id: 'Meena Time', name: `CHK-${++seq}` }
+          db['Employee Checkin'].push(row); posted.push(row)
+          return { ...p, name: row.name }
+        })
+        send(200, { message: out })
+      })
+      return
+    }
     const m = u.pathname.match(/^\/api\/resource\/([^/]+)(?:\/(.+))?$/)
     if (!m) return send(404, {})
     const dt = decodeURIComponent(m[1]), name = m[2] && decodeURIComponent(m[2])
@@ -61,6 +81,7 @@ export function start(port = 8765) {
       req.on('data', (c) => (body += c))
       req.on('end', () => {
         const doc = JSON.parse(body)
+        if (dt === 'Employee Checkin' && opts.geo && !doc.latitude) return send(417, { exception: 'frappe.exceptions.ValidationError: Latitude and longitude values are required for checking in.' })
         if (dt === 'Employee Checkin' && rows.some((r) => r.employee === doc.employee && String(r.time).slice(0, 19) === doc.time))
           return send(417, { exception: 'frappe.exceptions.ValidationError: This employee already has a log with the same timestamp.' })
         const row = { ...doc, name: `CHK-${++seq}` }
@@ -75,7 +96,7 @@ export function start(port = 8765) {
     const ok = (r) => filters.every(([f, op, v]) => op === '=' ? r[f] === v : op === '>=' ? String(r[f]) >= v : true)
     send(200, { data: rows.filter(ok).map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? null]))) })
   })
-  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve({ server, db, posted })))
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve({ server, db, posted, opts })))
 }
 
 if (process.argv[1]?.endsWith('mock-frappe.mjs')) start(+process.argv[2] || 8765).then(() => console.log('mock frappe on', process.argv[2] || 8765))
