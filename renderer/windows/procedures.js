@@ -223,6 +223,7 @@ async function postPunches() {
 function openUnpost() {
   openGridWindow({
     id: 'unpost', title: 'الغاء ترحيل الحركات', table: 'posted_periods', orderBy: 'from_date DESC', width: 520,
+    deleteOnly: true,
     help: 'احذف الفترة المرحّلة (زر «حذف») للسماح بتعديل حركاتها.',
     columns: [
       { field: 'from_date', label: 'من تاريخ', type: 'readonly' },

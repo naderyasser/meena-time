@@ -2,4 +2,6 @@
 dist/
 node_modules/
 preview-data/
+test-sheets/
+test-shots/
 tools/keys/private.pem

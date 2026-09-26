@@ -27,7 +27,7 @@ body {
   height: 22px; background: #fbfbfb; border-bottom: 1px solid #d5d5d5;
   direction: ltr; padding: 3px 8px; font-size: 12px; color: #444;
 }
-#taskstrip { position: absolute; top: 24px; left: 4px; display: flex; gap: 4px; direction: rtl; z-index: 5; }
+#taskstrip { position: absolute; top: 24px; left: 4px; display: flex; gap: 4px; direction: rtl; z-index: 90000; }
 #taskstrip button {
   font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #b9c3cc;
   background: #eef2f5; cursor: pointer;
@@ -36,7 +36,7 @@ body {
 
 /* ── menu bar ─────────────────────────────────────────────── */
 #menubar {
-  position: absolute; top: 24px; right: 4px; display: flex; gap: 2px; z-index: 20;
+  position: absolute; top: 24px; right: 4px; display: flex; gap: 2px; z-index: 90000; /* above any child window */
 }
 .menu { position: relative; }
 .menu > button {
@@ -47,12 +47,12 @@ body {
 .menu > button:hover, .menu.open > button { background: #eaf6fd; border-color: #7fb7e3; }
 .menu .drop {
   display: none; position: absolute; top: 100%; right: 0; min-width: 230px;
-  background: #f7f7f7; border: 1px solid #8f9aa5; box-shadow: 2px 3px 6px rgba(0,0,0,.25); padding: 2px;
+  background: #f7f7f7; border: 1px solid #8f9aa5; box-shadow: 2px 3px 6px rgba(0,0,0,.25); padding: 2px; width: max-content;
 }
 .menu.open .drop { display: block; }
 .drop button {
   width: 100%; font: inherit; text-align: right; background: transparent; border: 1px solid transparent;
-  padding: 5px 8px 5px 24px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 5px 8px 5px 24px; display: flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap;
 }
 .drop button:hover { background: #d9ecfb; border-color: #7fb7e3; }
 .drop hr { border: 0; border-top: 1px solid #cfd4d9; margin: 2px 4px; }
@@ -112,7 +112,7 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 12px; }
 .grid tr.new td { color: #777; }
 
 /* ── dialogs (login / register) ───────────────────────────── */
-.dlg-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.08); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.dlg-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.08); display: flex; align-items: center; justify-content: center; z-index: 100000; /* modal: always on top */ }
 .dlg { background: #fff; border: 1px solid #6e7a86; box-shadow: 4px 4px 14px rgba(0,0,0,.35); width: 440px; }
 .dlg .winbar { height: 22px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 11px; padding: 3px 8px; color: #333; }
 .dlg .head { background: linear-gradient(#3a95e3, #1f6fc4); color: #fff; text-align: center; font-size: 15px; padding: 4px; }

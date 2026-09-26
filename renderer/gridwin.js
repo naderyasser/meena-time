@@ -9,6 +9,7 @@
 //   extraButtons?: [{ key, label, icon, onClick(ctx) }],   // placed after «مساعدة»
 //   beforeDelete?: (row) => string|null,                    // return a message to block
 //   onRowOpen?: (row) => void,                              // double-click
+//   deleteOnly?: true,                                      // list with «حذف» only (no new/edit)
 // }
 function openGridWindow(cfg) {
   UI.openWindow(cfg.id, cfg.title, { width: cfg.width || 640, height: cfg.height || 360 }, (body, win) => {
@@ -35,9 +36,11 @@ function openGridWindow(cfg) {
     const bar = UI.toolbar([
       { key: 'help', label: 'مساعدة', icon: 'help', onClick: () => UI.message(cfg.help || 'أدخل البيانات في السطر الفارغ ثم اضغط «حفظ».') },
       ...(cfg.extraButtons || []).map((b) => ({ ...b, onClick: () => b.onClick(ctx) })),
-      { key: 'new', label: 'جديد', icon: 'new', onClick: () => { current = rows.filter((r) => r._state !== 'deleted').length; draw(); focusFirst() } },
-      { key: 'save', label: 'حفظ', icon: 'save', onClick: save },
-      { key: 'undo', label: 'إهمال', icon: 'undo', onClick: load },
+      ...(cfg.deleteOnly ? [] : [
+        { key: 'new', label: 'جديد', icon: 'new', onClick: () => { current = rows.filter((r) => r._state !== 'deleted').length; draw(); focusFirst() } },
+        { key: 'save', label: 'حفظ', icon: 'save', onClick: save },
+        { key: 'undo', label: 'إهمال', icon: 'undo', onClick: load },
+      ]),
       { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
       { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: async () => { if (!dirty || (await confirmDiscard())) win.close() } },
@@ -65,7 +68,7 @@ function openGridWindow(cfg) {
 
     function draw() {
       tbody.innerHTML = ''
-      const all = [...rows.filter((r) => r._state !== 'deleted'), blankRow()]
+      const all = [...rows.filter((r) => r._state !== 'deleted'), ...(cfg.deleteOnly ? [] : [blankRow()])]
       all.forEach((r, i) => {
         const tr = UI.el(`<tr class="${i === current ? 'current' : ''} ${r._state === 'blank' ? 'new' : ''}">
           <td class="sel"></td><td class="center">${r.id ?? ''}</td>${cols.map((c) => cell(c, r)).join('')}</tr>`)
