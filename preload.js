@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('bridge', {
   readDevice: (dev) => ipcRenderer.invoke('device:read', dev),
   backup: (year, bytes) => ipcRenderer.invoke('db:backup', year, bytes),
   paths: () => ipcRenderer.invoke('paths'),
+  saveFile: (name, bytes, ext) => ipcRenderer.invoke('file:save', name, bytes, ext),
+  savePdf: (name, html) => ipcRenderer.invoke('file:pdf', name, html),
 })

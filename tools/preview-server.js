@@ -36,6 +36,7 @@ http.createServer(async (req, res) => {
   if (p === '/') { res.writeHead(302, { Location: '/renderer/index.html' }); return res.end() }
   let file = p
   if (file.startsWith('/sql.js/')) file = '/node_modules/sql.js/dist/' + file.slice(8)
+  if (file.startsWith('/node_modules/xlsx/')) file = file
   const full = path.join(ROOT, path.normalize(file))
   if (!full.startsWith(ROOT) || !fs.existsSync(full)) { res.writeHead(404); return res.end() }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(full)] || 'application/octet-stream' })

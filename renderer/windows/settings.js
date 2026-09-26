@@ -40,6 +40,11 @@ function openUsers() {
     const bar = UI.toolbar([
       { key: 'new', label: 'مستخدم جديد', icon: 'new', onClick: () => edit(null) },
       { key: 'pw', label: 'تغيير كلمة المرور', icon: 'register', onClick: () => (current ? edit(current) : UI.message('اختر مستخدماً')) },
+      { key: 'perm', label: 'الصلاحيات', icon: 'm_set', onClick: () => {
+        if (!current) return UI.message('اختر مستخدماً')
+        if (current.is_admin) return UI.message('مدير النظام له كل الصلاحيات')
+        editPermissions(current).then(load)
+      } },
       { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
@@ -111,4 +116,83 @@ async function openSystemSettings() {
 async function backupNow() {
   const res = await window.bridge.backup(DB.year, DB.db.export())
   UI.message(res?.ok ? `تم حفظ النسخة الاحتياطية:\n${res.path}` : res?.error || 'تم إلغاء النسخ الاحتياطي')
+}
+
+function openPenaltyRules() {
+  openGridWindow({
+    id: 'penalty-rules', title: 'لائحة الجزاءات', table: 'penalty_rules', orderBy: 'violation, occurrence', width: 860,
+    help: 'لكل مخالفة حدد الجزاء حسب مرة تكرارها خلال الشهر. قاعدة «التكرار 4» تُطبَّق على المرة الرابعة وما بعدها. «أقل مدة» تتجاهل التأخير/الانصراف الأقصر منها.',
+    columns: [
+      { field: 'violation', label: 'المخالفة', type: 'select', width: 150, options: () => Object.entries(VIOLATIONS), required: true },
+      { field: 'min_minutes', label: 'أقل مدة (دقائق)', type: 'en', width: 110 },
+      { field: 'occurrence', label: 'التكرار', type: 'select', width: 110, options: () => [[1, 'المرة الأولى'], [2, 'الثانية'], [3, 'الثالثة'], [4, 'الرابعة فأكثر']], required: true },
+      { field: 'action', label: 'الجزاء', type: 'select', width: 120, options: () => Object.entries(ACTIONS), required: true },
+      { field: 'amount', label: 'القيمة', type: 'en', width: 80 },
+      { field: 'notes', label: 'ملاحظات' },
+    ],
+    validate: (r) => {
+      if (r.min_minutes !== '' && r.min_minutes != null && !/^\d{1,4}$/.test(String(r.min_minutes))) return 'أقل مدة: رقم صحيح بالدقائق'
+      if (r.action !== 'warning' && !(+r.amount > 0)) return 'القيمة مطلوبة للخصم (دقائق أو أيام)'
+      if (r.action === 'days' && +r.amount > 30) return 'خصم الأيام لا يتجاوز 30'
+      return null
+    },
+  })
+}
+
+// Screens a non-admin user may be granted (menu item labels)
+const PERMISSION_ITEMS = () => MENUS.filter((m) => !['مساعدة'].includes(m.label))
+  .map((m) => [m.label, m.items.filter((it) => it !== '-').map(([l]) => l).filter((l) => !['اعدادات المستخدمين', 'تسجيل المنتج'].includes(l))])
+
+async function editPermissions(u) {
+  const current = new Set(JSON.parse(u.permissions || '[]'))
+  const groups = PERMISSION_ITEMS()
+  await UI.dialog({
+    head: `صلاحيات المستخدم ${u.username}`, width: 720,
+    bodyHtml: `<div class="perm-grid">${groups.map(([m, items]) => `<fieldset><legend><label><input type="checkbox" class="all"> ${m}</label></legend>
+      ${items.map((it) => `<label class="chk"><input type="checkbox" value="${UI.esc(`${m}/${it}`)}" ${current.has(`${m}/${it}`) ? 'checked' : ''}> ${UI.esc(it)}</label>`).join('')}</fieldset>`).join('')}</div>`,
+    buttons: [
+      { label: 'حفظ', icon: 'save', onClick: async (d) => {
+        const list = [...d.root.querySelectorAll('.perm-grid input[value]:checked')].map((i) => i.value)
+        DB.run('UPDATE users SET permissions = ? WHERE id = ?', [JSON.stringify(list), u.id])
+        DB.audit('تعديل صلاحيات', u.username, `${list.length} شاشة`)
+        await DB.flush()
+        d.close(true)
+      } },
+      { label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close(false) },
+    ],
+  })
+}
+// «تحديد الكل» per menu group (the dialog is in the DOM while open)
+document.addEventListener('change', (e) => {
+  if (!e.target.matches('.perm-grid .all')) return
+  e.target.closest('fieldset').querySelectorAll('input[value]').forEach((i) => (i.checked = e.target.checked))
+})
+
+function openAuditLog() {
+  UI.openWindow('audit', 'سجل الحركات', { width: 900, height: 460 }, (body, win) => {
+    const bar = UI.toolbar([
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const users = DB.all('SELECT DISTINCT username FROM audit_log ORDER BY username').map((r) => r.username)
+    const filters = UI.el(`<div class="filters">
+      <label>من</label><input type="date" id="al-from" value="${Engine.addDays(Engine.today(), -30)}">
+      <label>إلى</label><input type="date" id="al-to" value="${Engine.today()}">
+      <label>المستخدم</label><select id="al-user"><option value="">الكل</option>${users.map((u) => `<option>${UI.esc(u)}</option>`).join('')}</select>
+      <button id="al-go">عرض</button></div>`)
+    const wrap = UI.el(`<div class="grid-wrap"><table class="grid"><thead><tr><th style="width:140px">الوقت</th><th style="width:90px">المستخدم</th>
+      <th class="sorted" style="width:150px">العملية</th><th>على</th><th>تفاصيل</th></tr></thead><tbody></tbody></table></div>`)
+    const count = UI.el('<div style="padding:2px 8px;font-size:12px"></div>')
+    body.append(bar, filters, wrap, count)
+    const run = () => {
+      const u = filters.querySelector('#al-user').value
+      const rows = DB.all(`SELECT * FROM audit_log WHERE ts BETWEEN ? AND ? ${u ? 'AND username = ?' : ''} ORDER BY id DESC LIMIT 2000`,
+        [filters.querySelector('#al-from').value, filters.querySelector('#al-to').value + ' 99', ...(u ? [u] : [])])
+      wrap.querySelector('tbody').innerHTML = rows.map((r) => `<tr><td class="center" dir="ltr">${UI.esc(r.ts)}</td><td class="center">${UI.esc(r.username)}</td>
+        <td>${UI.esc(r.action)}</td><td>${UI.esc(r.target)}</td><td>${UI.esc(r.details)}</td></tr>`).join('')
+      count.textContent = `عدد العمليات: ${rows.length}`
+    }
+    filters.querySelector('#al-go').onclick = run
+    run()
+  })
 }

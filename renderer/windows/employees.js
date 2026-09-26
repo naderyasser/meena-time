@@ -49,7 +49,11 @@ function openEmployees() {
       const ok = await UI.dialog({ head: 'تأكيد الحذف', bodyHtml: `<div>حذف الموظف «${UI.esc(current.name_ar)}»؟</div>`, width: 340,
         buttons: [{ label: 'نعم', icon: 'ok', onClick: (d) => d.close(true) }, { label: 'لا', icon: 'cancel', onClick: (d) => d.close(false) }] })
       if (!ok) return
+      if (DB.one('SELECT 1 FROM punches WHERE emp_code = ? LIMIT 1', [current.code]) || DB.one('SELECT 1 FROM posted_attendance WHERE employee_id = ? LIMIT 1', [current.id]))
+        return UI.message('للموظف حركات مسجلة — غيّر حالته إلى «منتهي»، أو استخدم «الغاء جميع بيانات الموظف بالنظام»')
+      DB.run('DELETE FROM employee_shifts WHERE employee_id = ?', [current.id])
       DB.run('DELETE FROM employees WHERE id = ?', [current.id])
+      DB.audit('حذف موظف', `${current.code} — ${current.name_ar}`)
       await DB.flush()
       load()
     }
@@ -74,12 +78,14 @@ function openEmployeeForm(emp, onSaved) {
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
     const form = UI.el(`<div class="form">
-      <fieldset><legend>تعريف الموظف</legend><div class="grid2">
+      <fieldset><legend>تعريف الموظف</legend><div class="with-photo"><div class="grid2">
         <label>كود الموظف (رقم الموظف على جهاز البصمة) *</label>${txt('code', 'dir="ltr"')}
         <label>حالة الموظف</label>${sel('status', EMP_STATUSES.map((s) => [s, s]))}
         <label>اسم الموظف بالعربية *</label>${txt('name_ar')}
         <label>اسم الموظف بالانجليزية</label>${txt('name_en', 'dir="ltr"')}
-      </div></fieldset>
+        <label>طريقة الحضور</label>${sel('attendance_method', [['بصمة', 'بصمة'], ['بصمة وجه', 'بصمة وجه'], ['بطاقة', 'بطاقة'], ['يدوي', 'يدوي']])}
+      </div><div class="photo" title="اضغط لاختيار صورة">${e.photo ? `<img src="${e.photo}">` : '<span>صورة الموظف</span>'}
+        <input type="file" accept="image/*" hidden><button type="button" class="rm" ${e.photo ? '' : 'hidden'}>إزالة</button></div></div></fieldset>
       <fieldset><legend>معلومات الموظف</legend><div class="grid2">
         <label>الوظيفة</label>${sel('job_id', listOptions('job')())}
         <label>تاريخ التعيين</label>${date('hire_date')}
@@ -88,7 +94,8 @@ function openEmployeeForm(emp, onSaved) {
         <label>المجموعة</label>${sel('group_id', opts('employee_groups')())}
         <label>المشروع</label>${sel('project_id', opts('projects')())}
         <label>الدوام *</label>${sel('shift_group_id', opts('shift_groups')())}
-      </div></fieldset>
+      </div>${emp ? `<div class="hist"><b>سجل الدوام:</b> ${DB.all('SELECT s.from_date, g.name_ar FROM employee_shifts s LEFT JOIN shift_groups g ON g.id = s.group_id WHERE s.employee_id = ? ORDER BY s.from_date', [emp.id])
+        .map((h) => `${UI.esc(h.name_ar)} من ${h.from_date}`).join(' ← ') || '—'}</div>` : ''}</fieldset>
       <fieldset><legend>معلومات شخصية</legend><div class="grid2">
         <label>الجنس</label>${sel('gender', [['ذكر', 'ذكر'], ['أنثى', 'أنثى']])}
         <label>الجنسية</label>${sel('nationality_id', listOptions('nationality')())}
@@ -108,6 +115,26 @@ function openEmployeeForm(emp, onSaved) {
       </div></fieldset>
     </div>`)
     body.append(bar, form)
+    // photo: resized to 240px JPEG and stored inline with the employee
+    let photo = e.photo || null
+    const box = form.querySelector('.photo'), fileIn = box.querySelector('input[type=file]'), rm = box.querySelector('.rm')
+    const showPhoto = () => { box.querySelector('img, span')?.remove(); box.prepend(photo ? Object.assign(document.createElement('img'), { src: photo }) : Object.assign(document.createElement('span'), { textContent: 'صورة الموظف' })); rm.hidden = !photo }
+    box.addEventListener('click', (ev) => { if (ev.target !== rm) fileIn.click() })
+    rm.addEventListener('click', () => { photo = null; showPhoto() })
+    fileIn.addEventListener('change', async () => {
+      const f = fileIn.files[0]
+      if (!f) return
+      if (f.size > 8 * 1024 * 1024) return UI.message('حجم الصورة كبير (الحد 8 ميجابايت)')
+      // read as a data: URL — the page's CSP allows data: images, not blob:
+      const src = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => ok(null); fr.readAsDataURL(f) })
+      const img = src && (await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src }))
+      if (!img) return UI.message('الملف ليس صورة صالحة')
+      const k = Math.min(1, 240 / Math.max(img.width, img.height))
+      const c = Object.assign(document.createElement('canvas'), { width: Math.round(img.width * k), height: Math.round(img.height * k) })
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      photo = c.toDataURL('image/jpeg', 0.85)
+      showPhoto()
+    })
 
     async function save() {
       const v = { ...e }
@@ -118,16 +145,40 @@ function openEmployeeForm(emp, onSaved) {
       if (!v.shift_group_id) return UI.message('الدوام مطلوب')
       if (v.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email)) return UI.message('البريد الالكتروني غير صحيح')
       if (!emp && !(await Trial.canAddEmployee())) return
+      // a shift change applies from a chosen date; earlier days keep the old shift
+      let shiftFrom = null
+      if (emp && String(v.shift_group_id) !== String(emp.shift_group_id)) {
+        shiftFrom = await UI.dialog({
+          head: 'تغيير الدوام', width: 420,
+          bodyHtml: `<div class="fields" style="grid-template-columns:150px 1fr"><label>يبدأ الدوام الجديد من</label><input type="date" id="sf" value="${Engine.today()}"></div>
+            <div style="font-size:12px;padding:0 4px">الأيام قبل هذا التاريخ تُحسب على الدوام السابق.</div>`,
+          buttons: [{ label: 'موافق', icon: 'ok', onClick: (d) => { const x = d.root.querySelector('#sf').value; x ? d.close(x) : d.error('اختر التاريخ') } },
+            { label: 'الغاء', icon: 'cancel', onClick: (d) => d.close(null) }],
+        })
+        if (!shiftFrom) return
+        if (Engine.isPosted(shiftFrom)) return UI.message('هذا التاريخ داخل فترة مرحّلة — اختر تاريخاً بعدها')
+      }
+      v.photo = photo
       const F = ['code', 'name_ar', 'name_en', 'status', 'job_id', 'department_id', 'section_id', 'group_id', 'project_id', 'shift_group_id',
         'hire_date', 'gender', 'nationality_id', 'national_id', 'religion', 'birth_date', 'mobile', 'email', 'address',
-        'ot_deduct_late', 'ot_before', 'ot_after', 'ot_holidays', 'no_punch_out']
+        'ot_deduct_late', 'ot_before', 'ot_after', 'ot_holidays', 'no_punch_out', 'attendance_method', 'photo']
       const vals = F.map((f) => (v[f] === '' ? null : v[f]))
       try {
-        if (emp) DB.run(`UPDATE employees SET ${F.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`, [...vals, emp.id])
-        else DB.run(`INSERT INTO employees (${F.join(', ')}) VALUES (${F.map(() => '?').join(', ')})`, vals)
+        DB.run('BEGIN')
+        if (emp) {
+          DB.run(`UPDATE employees SET ${F.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`, [...vals, emp.id])
+          if (shiftFrom) DB.run('INSERT OR REPLACE INTO employee_shifts (employee_id, group_id, from_date) VALUES (?, ?, ?)', [emp.id, +v.shift_group_id, shiftFrom])
+        } else {
+          DB.run(`INSERT INTO employees (${F.join(', ')}) VALUES (${F.map(() => '?').join(', ')})`, vals)
+          const id = DB.one('SELECT last_insert_rowid() AS id').id
+          DB.run('INSERT INTO employee_shifts (employee_id, group_id, from_date) VALUES (?, ?, ?)', [id, +v.shift_group_id, v.hire_date || '2000-01-01'])
+        }
+        DB.run('COMMIT')
       } catch (err) {
+        DB.run('ROLLBACK')
         return UI.message(/UNIQUE/.test(err.message) ? `كود الموظف ${v.code} مستخدم لموظف آخر` : `تعذّر الحفظ: ${err.message}`)
       }
+      DB.audit(emp ? 'تعديل موظف' : 'إضافة موظف', `${v.code} — ${v.name_ar}`, shiftFrom ? `دوام جديد من ${shiftFrom}` : '')
       await DB.flush()
       onSaved?.()
       win.close()

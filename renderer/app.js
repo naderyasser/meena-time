@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '0.1.1'
+const VERSION = '0.2.0'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -13,7 +13,7 @@ const MENUS = [
   { label: 'البيانات الأساسية', icon: 'm_base', items: [
     ['قوائم البرنامج', openLists], ['الإدارات والأقسام', openDepartments], ['المشاريع', openProjects],
     ['مواعيد العمل', openShiftGroups], ['الموظفين', openEmployees], ['مجموعات الموظفين', openEmployeeGroups],
-    ['تعريف الأجهزة', openDevices], ['العطلات الرسمية', openHolidays],
+    ['تعريف الأجهزة', openDevices], ['العطلات الرسمية', openHolidays], ['مواعيد رمضان', openRamadan],
   ] },
   { label: 'الإجراءات', icon: 'm_proc', items: [
     ['قراءة الحركات (شبكة - ملف)', openReadPunches], ['الغاء الحركات المسحوبة خلال فترة', () => deletePunchesInPeriod(['device', 'file'], 'الغاء الحركات المسحوبة خلال فترة')],
@@ -23,13 +23,13 @@ const MENUS = [
     ['ترحيل الحركات', postPunches], ['الغاء ترحيل الحركات', openUnpost], ['الغاء جميع بيانات الموظف بالنظام', purgeEmployee],
   ] },
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
-  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings]] },
-  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow]] },
+  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings]] },
+  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['سجل الحركات', openAuditLog]] },
   { label: 'مساعدة', icon: 'm_help', items: [['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
 ]
 
 let licence = { ok: false }
-const Session = { userId: null, username: '' }
+const Session = (window.Session = { userId: null, username: '', admin: false, perms: null })
 
 function setCaption() {
   document.getElementById('caption-text').textContent =
@@ -42,7 +42,11 @@ function buildMenu() {
   for (const m of MENUS) {
     const menu = UI.el(`<div class="menu"><button>${ICONS[m.icon]}<span>${m.label}</span></button><div class="drop"></div></div>`)
     const drop = menu.querySelector('.drop')
-    for (const it of m.items) {
+    // permissions are stored as "<menu>/<item>" — the same label can exist in two menus
+    const allowed = (label) => Session.admin || ['تسجيل المنتج', 'عن البرنامج'].includes(label) || (Session.perms || []).includes(`${m.label}/${label}`)
+    const items = m.items.filter((it) => it === '-' || allowed(it[0])).filter((it, i, a) => !(it === '-' && (i === 0 || a[i - 1] === '-' || i === a.length - 1)))
+    if (!items.some((it) => it !== '-')) continue
+    for (const it of items) {
       if (it === '-') { drop.appendChild(UI.el('<hr>')); continue }
       const [label, fn] = it
       const b = UI.el(`<button>${ICONS.item.replace('<svg', '<svg class="ico"')}<span>${label}</span></button>`)
@@ -80,10 +84,12 @@ function renderHome() {
         <div class="tile" data-t="proc">${ICONS.device}<span>الإجراءات</span></div>
         <div class="tile" data-t="setup">${ICONS.tools}<span>التجهيز</span></div>
       </div></div>`)
-  home.querySelector('[data-t=setup]').onclick = openShiftGroups
-  home.querySelector('[data-t=users]').onclick = openUsers
-  home.querySelector('[data-t=reports]').onclick = () => openReport('حالة اليوم')
-  home.querySelector('[data-t=proc]').onclick = openReadPunches
+  const can = (l) => Session.admin || (Session.perms || []).includes(l)  // l = "<menu>/<item>"
+  const guard = (l, fn) => () => (can(l) ? fn() : UI.message('ليس لديك صلاحية لهذه الشاشة'))
+  home.querySelector('[data-t=setup]').onclick = guard('البيانات الأساسية/مواعيد العمل', openShiftGroups)
+  home.querySelector('[data-t=users]').onclick = guard('الإعدادات/اعدادات المستخدمين', openUsers)
+  home.querySelector('[data-t=reports]').onclick = guard('التقارير/حالة اليوم', () => openReport('حالة اليوم'))
+  home.querySelector('[data-t=proc]').onclick = guard('الإجراءات/قراءة الحركات (شبكة - ملف)', openReadPunches)
   desk.prepend(home)
 }
 
@@ -147,6 +153,10 @@ async function login() {
         if (!u.password?.startsWith('sha256$')) { DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(pass), u.id]); await DB.flush() }
         Session.userId = u.id
         Session.username = u.username
+        Session.admin = !!u.is_admin
+        Session.perms = JSON.parse(u.permissions || '[]')
+        DB.audit('تسجيل دخول', u.username)
+        await DB.flush()
         d.close(true)
       } },
       { label: 'الغاء', icon: 'cancel', onClick: () => window.close() },

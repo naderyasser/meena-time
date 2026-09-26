@@ -25,5 +25,8 @@ const ICONS = {
   m_set: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="#e0a64a"/><circle cx="12" cy="12" r="4" fill="#fff"/></svg>',
   m_tools: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5" fill="none" stroke="#555" stroke-width="2.5"/><circle cx="16" cy="16" r="4" fill="none" stroke="#555" stroke-width="2.5"/></svg>',
   m_help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#9aa3ad"/><text x="12" y="17" text-anchor="middle" font-size="13" fill="#fff" font-family="Arial">?</text></svg>',
+  pdf: '<svg viewBox="0 0 24 24"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#b3261e"/><rect x="3" y="11" width="15" height="7" rx="1" fill="#d13438"/><text x="10.5" y="16.6" text-anchor="middle" font-size="5.5" font-weight="bold" fill="#fff" font-family="Arial">PDF</text></svg>',
+  excel: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="#1d6f42"/><path d="M8 7l8 10M16 7L8 17" stroke="#fff" stroke-width="2.4"/></svg>',
+  audit: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2" fill="#6d7f95"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#fff" stroke-width="2"/></svg>',
   item: '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="#9eb3c8"/></svg>',
 }

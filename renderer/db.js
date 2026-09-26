@@ -77,6 +77,58 @@ const DB = {
       // first run: default admin «أ» with an empty password, like the video's login
       this.db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)', ['أ', ''])
     }
+    this.migrateV2()
+  },
+
+  // v2 (0.2.0): up to 4 «ورديات» per day + «شفت ممتد», open shifts, rotating
+  // shifts (blocks), Ramadan timings, dated employee shifts, posting snapshots,
+  // user permissions, audit log, employee photo, penalty rules.
+  migrateV2() {
+    const addCol = (t, c, def) => { if (!this.all(`PRAGMA table_info(${t})`).some((x) => x.name === c)) this.db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`) }
+    addCol('shift_groups', 'rotational', 'INTEGER DEFAULT 0')
+    addCol('shift_groups', 'start_date', 'TEXT')
+    addCol('employees', 'photo', 'TEXT')
+    addCol('employees', 'attendance_method', "TEXT DEFAULT 'بصمة'")
+    addCol('users', 'permissions', 'TEXT')
+    this.db.run(`
+      -- one row per (group, calendar Y|R, slot, window 1..4). slot = weekday 0..6
+      -- for normal/open shifts, block index for rotating shifts.
+      CREATE TABLE IF NOT EXISTS shift_windows (
+        group_id INTEGER NOT NULL, calendar TEXT NOT NULL DEFAULT 'Y', slot INTEGER NOT NULL, window_no INTEGER NOT NULL DEFAULT 1,
+        is_off INTEGER DEFAULT 0, start_in TEXT, check_in TEXT, late_min INTEGER DEFAULT 0, end_in TEXT,
+        start_out TEXT, early_min INTEGER DEFAULT 0, check_out TEXT, end_out TEXT, extended INTEGER DEFAULT 0,
+        required_min INTEGER, extends_next_day INTEGER DEFAULT 0, day_end TEXT,
+        PRIMARY KEY (group_id, calendar, slot, window_no));
+      CREATE TABLE IF NOT EXISTS rotation_blocks (
+        group_id INTEGER NOT NULL, calendar TEXT NOT NULL DEFAULT 'Y', idx INTEGER NOT NULL,
+        work_days INTEGER NOT NULL, rest_days INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (group_id, calendar, idx));
+      CREATE TABLE IF NOT EXISTS ramadan_periods (id INTEGER PRIMARY KEY, from_date TEXT NOT NULL, to_date TEXT NOT NULL);
+      -- which shift group an employee is on from which date (history-safe shift changes)
+      CREATE TABLE IF NOT EXISTS employee_shifts (
+        id INTEGER PRIMARY KEY, employee_id INTEGER NOT NULL, group_id INTEGER NOT NULL, from_date TEXT NOT NULL,
+        UNIQUE (employee_id, from_date));
+      -- «ترحيل الحركات» freezes the computed day so later setting changes never rewrite it
+      CREATE TABLE IF NOT EXISTS posted_attendance (
+        employee_id INTEGER NOT NULL, date TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (employee_id, date));
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY, ts TEXT DEFAULT (datetime('now','localtime')), username TEXT, action TEXT, target TEXT, details TEXT);
+      -- «لائحة الجزاءات»: violation × occurrence in the month → action
+      CREATE TABLE IF NOT EXISTS penalty_rules (
+        id INTEGER PRIMARY KEY, violation TEXT NOT NULL, min_minutes INTEGER DEFAULT 0, occurrence INTEGER NOT NULL DEFAULT 1,
+        action TEXT NOT NULL, amount REAL DEFAULT 0, notes TEXT);
+    `)
+    if (this.one("SELECT value FROM meta WHERE key = 'schema'")?.value !== '2') {
+      // carry v1 data over: weekly times → window 1 of the year calendar; employee shift → dated row
+      this.db.run(`INSERT OR IGNORE INTO shift_windows (group_id, calendar, slot, window_no, is_off, start_in, check_in, late_min, end_in, start_out, early_min, check_out, end_out)
+        SELECT group_id, 'Y', day, 1, is_off, start_in, check_in, late_min, end_in, start_out, early_min, check_out, end_out FROM shift_times`)
+      this.db.run(`INSERT OR IGNORE INTO employee_shifts (employee_id, group_id, from_date)
+        SELECT id, shift_group_id, COALESCE(hire_date, '2000-01-01') FROM employees WHERE shift_group_id IS NOT NULL`)
+      this.db.run("INSERT INTO meta (key, value) VALUES ('schema', '2') ON CONFLICT(key) DO UPDATE SET value = '2'")
+    }
+  },
+
+  audit(action, target, details = '') {
+    try { this.db.run('INSERT INTO audit_log (username, action, target, details) VALUES (?, ?, ?, ?)', [window.Session?.username || '', action, target, String(details).slice(0, 500)]) } catch {}
   },
 
   all(sql, params = []) {

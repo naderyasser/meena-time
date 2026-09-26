@@ -215,7 +215,8 @@ async function postPunches() {
   if (!p) return
   if (p.to >= Engine.today()) return UI.message('لا يمكن ترحيل اليوم الحالي أو أيام قادمة')
   if (DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [p.to, p.from])) return UI.message('الفترة تتداخل مع فترة مرحّلة سابقاً')
-  DB.run('INSERT INTO posted_periods (from_date, to_date) VALUES (?, ?)', [p.from, p.to])
+  const n = Engine.post(p.from, p.to)
+  DB.audit('ترحيل الحركات', `${p.from} → ${p.to}`, `${n} يوم`)
   await DB.flush()
   UI.message(`تم ترحيل الحركات من ${p.from} إلى ${p.to}`)
 }
@@ -224,6 +225,7 @@ function openUnpost() {
   openGridWindow({
     id: 'unpost', title: 'الغاء ترحيل الحركات', table: 'posted_periods', orderBy: 'from_date DESC', width: 520,
     deleteOnly: true,
+    onDeleteRow: (r) => { Engine.unpost(r.id); DB.audit('الغاء ترحيل', `${r.from_date} → ${r.to_date}`) },
     help: 'احذف الفترة المرحّلة (زر «حذف») للسماح بتعديل حركاتها.',
     columns: [
       { field: 'from_date', label: 'من تاريخ', type: 'readonly' },
@@ -251,8 +253,11 @@ async function purgeEmployee() {
   DB.run('DELETE FROM punches WHERE emp_code = ?', [e.code])
   DB.run('DELETE FROM leaves WHERE employee_id = ?', [id])
   DB.run('DELETE FROM permissions WHERE employee_id = ?', [id])
+  DB.run('DELETE FROM employee_shifts WHERE employee_id = ?', [id])
+  DB.run('DELETE FROM posted_attendance WHERE employee_id = ?', [id])
   DB.run('DELETE FROM employees WHERE id = ?', [id])
   DB.run('COMMIT')
+  DB.audit('الغاء جميع بيانات الموظف', `${e.code} — ${e.name_ar}`)
   await DB.flush()
   UI.message('تم حذف جميع بيانات الموظف')
 }

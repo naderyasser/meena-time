@@ -56,7 +56,7 @@ check('caption: Unregistered', /Unregistered/.test(await p.locator('#caption-tex
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 8], ['الإجراءات', 10], ['التقارير', 11], ['الإعدادات', 3], ['أدوات', 2], ['مساعدة', 1]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 4], ['أدوات', 3], ['مساعدة', 1]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)
@@ -129,14 +129,14 @@ w = await gridCrud('مجموعات أوقات الدوام', 'مواعيد ال�
 await w.locator('tbody tr').first().click(); await btn(w, 'المواعيد').click(); await p.waitForTimeout(300)
 let tw = win('المواعيد')
 check('shift times: window opens with 7 days', (await tw.locator('tbody tr').count()) === 7)
-check('shift times: Friday off by default', await tw.locator('tbody tr').nth(6).locator('[data-f=is_off]').isChecked())
+check('shift times: Friday off by default', await tw.locator('tbody tr').nth(6).locator('.off').isChecked())
 await btn(tw, 'حفظ').click(); await p.waitForTimeout(150)
 check('shift times: empty times rejected', /مطلوب/.test(await okMsg()))
 const r0 = tw.locator('tbody tr').first()
 for (const [f, v] of [['start_in', '06:00'], ['check_in', '08:00'], ['late_min', '15'], ['end_in', '11:00'], ['start_out', '12:00'], ['early_min', '15'], ['check_out', '16:00'], ['end_out', '20:00']]) await r0.locator(`[data-f=${f}]`).fill(v)
 await btn(tw, 'نسخ لكل الأيام').click(); await p.waitForTimeout(100)
 check('shift times: «نسخ لكل الأيام» copies to working days', (await tw.locator('tbody tr').nth(3).locator('[data-f=check_in]').inputValue()) === '08:00')
-await tw.locator('tbody tr').nth(5).locator('[data-f=is_off]').check(); await p.waitForTimeout(100)
+await tw.locator('tbody tr').nth(5).locator('.off').check(); await p.waitForTimeout(100)
 check('shift times: «عطلة» disables the day', await tw.locator('tbody tr').nth(5).locator('[data-f=check_in]').isDisabled())
 await r0.locator('[data-f=late_min]').fill('200'); await btn(tw, 'حفظ').click(); await p.waitForTimeout(150)
 check('shift times: grace beyond end_in rejected', /يتجاوز/.test(await okMsg()))
@@ -257,7 +257,7 @@ await btn(w, 'حفظ').click(); await p.waitForTimeout(250); check('permissions:
 // ── 6. reports (all 11) ───────────────────────────────────
 const detailedExpect = { '2026-09-19': 'حضور', '2026-09-20': 'حضور متأخر', '2026-09-21': 'حضور', '2026-09-22': 'إجازة', '2026-09-23': 'عطلة رسمية', '2026-09-24': 'عطلة إسبوعية' }
 const reports = ['مواعيد العمل', 'الموظفين', 'الحركات الغير مكتملة', 'التأخير عن بداية الدوام اليومي', 'التأخير عن الدوام خلال فترة', 'إجازات الموظفين',
-  'الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'الغياب خلال فترة', 'حالة اليوم', 'الحضور والانصراف بالحركات']
+  'الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'الغياب خلال فترة', 'حالة اليوم', 'الحضور والانصراف بالحركات', 'الجزاءات']
 const trialOpen = ['الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'حالة اليوم', 'الحضور والانصراف بالحركات']
 for (const r of reports) {
   await menu('التقارير', r)
@@ -331,7 +331,7 @@ await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p
 await menu('الإعدادات', 'اعدادات النظام'); check('system settings: shows data folder', (await p.locator('.dlg input').first().inputValue()).includes('mt-fulltest')); await snap('system'); await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
 await menu('أدوات', 'نسخة احتياطية'); check('backup: file written', /تم حفظ/.test(await okMsg()) && fs.existsSync(`${UD}/manual-backup.sqlite`))
 check('backup: automatic daily backup exists', fs.readdirSync(`${UD}/backups`).length >= 0)
-await menu('مساعدة', 'عن البرنامج'); check('about: version', /0\.1\.1/.test(await okMsg()))
+await menu('مساعدة', 'عن البرنامج'); check('about: version', /0\.2\.0/.test(await okMsg()))
 
 await menu('أدوات', 'تسجيل المنتج'); await snap('register')
 const req = await p.locator('#req').inputValue()
@@ -345,19 +345,205 @@ check('register: caption Registered', /Registered/.test(await p.locator('#captio
 check('register: trial banner hidden', (await p.locator('.trial').count()) === 0)
 await menu('التقارير', 'الغياب خلال فترة'); check('registered: previously locked report opens', await win('الغياب خلال فترة').isVisible()); await closeWin(win('الغياب خلال فترة'))
 
+// ── 8b. v0.2 features (registered: no employee limit) ─────
+const openGroupTimes = async (name) => {
+  await menu('البيانات الأساسية', 'مواعيد العمل'); const gw = win('مجموعات أوقات الدوام')
+  await gw.locator('tbody tr', { has: p.locator(`input[value="${name}"]`) }).first().click()
+  await btn(gw, 'المواعيد').click(); await p.waitForTimeout(300)
+  return [gw, win('المواعيد')]
+}
+const fillWin = async (row, t) => { for (const [f, v] of Object.entries(t)) await row.locator(`[data-f=${f}]`).fill(String(v)) }
+const W = (a, b, c, d, e, f) => ({ start_in: a, check_in: b, late_min: 15, end_in: c, start_out: d, early_min: 15, check_out: e, end_out: f })
+// new shift groups: normal split, night (extended), open, rotating
+await menu('البيانات الأساسية', 'مواعيد العمل'); w = win('مجموعات أوقات الدوام')
+for (const g of [{ name_ar: 'مقسم' }, { name_ar: 'ليلي' }, { name_ar: 'مفتوح', open_shift: 1 }, { name_ar: 'متغير', rotational: 1, start_date: '2026-09-19' }, { name_ar: 'خطأ', open_shift: 1, rotational: 1, start_date: '2026-09-19' }]) {
+  const r = lastRow(w)
+  await r.locator('[data-f=name_ar]').fill(g.name_ar)
+  if (g.open_shift) await r.locator('[data-f=open_shift]').check()
+  if (g.rotational) await r.locator('[data-f=rotational]').check()
+  if (g.start_date) await r.locator('[data-f=start_date]').fill(g.start_date)
+  await btn(w, 'حفظ').click(); await p.waitForTimeout(250)
+  if (g.name_ar === 'خطأ') { check('shift groups: open + rotating together rejected', /وليس الاثنين/.test(await okMsg())); await btn(w, 'إهمال').click() }
+}
+await lastRow(w).locator('[data-f=name_ar]').fill('بدون تاريخ'); await lastRow(w).locator('[data-f=rotational]').check(); await btn(w, 'حفظ').click(); await p.waitForTimeout(200)
+check('shift groups: rotating needs a start date', /تاريخ بدء العمل بالدوام مطلوب/.test(await okMsg())); await btn(w, 'إهمال').click(); await closeWin(w)
+// split shift: 2 ورديات every working day
+let [gw, t] = await openGroupTimes('مقسم')
+await t.locator('tbody tr').first().locator('.cnt').selectOption('2'); await p.waitForTimeout(150)
+await fillWin(t.locator('tbody tr').nth(0), W('07:00', '08:00', '09:00', '11:30', '12:00', '13:00'))
+await fillWin(t.locator('tbody tr').nth(1), W('15:00', '16:00', '17:00', '19:30', '20:00', '21:00'))
+check('split shift: 2 وردية rows for the day', (await t.locator('tbody tr[data-day="0"]').count()) === 2)
+await fillWin(t.locator('tbody tr').nth(1), W('11:00', '16:00', '17:00', '19:30', '20:00', '21:00'))
+await btn(t, 'حفظ').click(); await p.waitForTimeout(200); check('split shift: overlapping second وردية rejected', /لا يمكن أن يكون قبل|شفت ممتد/.test(await okMsg()))
+await fillWin(t.locator('tbody tr').nth(1), W('15:00', '16:00', '17:00', '19:30', '20:00', '21:00'))
+await btn(t, 'نسخ لكل الأيام').click(); await p.waitForTimeout(150)
+await btn(t, 'حفظ').click(); await p.waitForTimeout(250); check('split shift: saved', /تم حفظ/.test(await okMsg()))
+await snap('v2-split-shift'); await closeWin(t); await closeWin(gw)
+// night shift 22:00 → 06:00 «شفت ممتد»
+;[gw, t] = await openGroupTimes('ليلي')
+await fillWin(t.locator('tbody tr').first(), W('20:00', '22:00', '23:59', '04:00', '06:00', '09:00'))
+await btn(t, 'حفظ').click(); await p.waitForTimeout(200); check('night shift: past-midnight times need «شفت ممتد»', /شفت ممتد/.test(await okMsg()))
+await t.locator('tbody tr').first().locator('[data-f=extended]').check()
+await btn(t, 'نسخ لكل الأيام').click(); await p.waitForTimeout(150)
+await t.locator('tbody tr').first().locator('[data-f=extended]').check()
+for (let i = 1; i < 6; i++) { const cb = t.locator('tbody tr').nth(i).locator('[data-f=extended]'); if (await cb.isEnabled()) await cb.check() }
+await btn(t, 'حفظ').click(); await p.waitForTimeout(250); check('night shift: extended shift saved', /تم حفظ/.test(await okMsg()))
+await closeWin(t); await closeWin(gw)
+// open shift: 08:00 required; Ramadan: 05:00
+;[gw, t] = await openGroupTimes('مفتوح')
+check('open shift: open-shift editor', (await t.locator('.req').count()) === 7)
+for (let i = 0; i < 6; i++) await t.locator('tbody tr').nth(i).locator('.req').fill('08:00')
+await t.locator('.tabs button', { hasText: 'أيام رمضان' }).click(); await p.waitForTimeout(150)
+for (let i = 0; i < 6; i++) { await t.locator('tbody tr').nth(i).locator('.off').uncheck(); await p.waitForTimeout(50) }
+for (let i = 0; i < 6; i++) await t.locator('tbody tr').nth(i).locator('.req').fill('05:00')
+await btn(t, 'حفظ').click(); await p.waitForTimeout(250); check('open shift: year + Ramadan saved', /تم حفظ/.test(await okMsg()))
+await snap('v2-open-shift'); await closeWin(t); await closeWin(gw)
+// rotating: [2 days 07-15, 1 rest] [2 days 15-23, 1 rest], starting 2026-09-19
+;[gw, t] = await openGroupTimes('متغير')
+check('rotation: blocks editor', (await t.locator('.block').count()) === 1)
+let b0 = t.locator('.block').nth(0)
+await b0.locator('.work').fill('2'); await b0.locator('.rest').fill('1')
+await fillWin(b0.locator('tbody tr').first(), W('06:00', '07:00', '08:00', '14:00', '15:00', '17:00'))
+check('rotation: rows 2-4 disabled until enabled', await b0.locator('tbody tr').nth(1).locator('[data-f=check_in]').isDisabled())
+await t.locator('.block-btns .add').click(); await p.waitForTimeout(150)
+check('rotation: «إضافة مجموعة مواعيد» adds a block + «حذف» appears', (await t.locator('.block').count()) === 2 && (await t.locator('.block-btns .del').count()) === 1)
+const b1 = t.locator('.block').nth(1)
+await b1.locator('.work').fill('2'); await b1.locator('.rest').fill('1')
+await fillWin(b1.locator('tbody tr').first(), W('14:00', '15:00', '16:00', '22:00', '23:00', '23:59'))
+await btn(t, 'حفظ').click(); await p.waitForTimeout(250); check('rotation: saved', /تم حفظ/.test(await okMsg()), '')
+await snap('v2-rotation'); await closeWin(t)
+check('rotation: cycle total = 2×8h + 2×8h = 32:00', (await gw.locator('tbody tr', { has: p.locator('input[value="متغير"]') }).locator('td').nth(4).textContent()) === '32:00')
+await closeWin(gw)
+// Ramadan period
+await menu('البيانات الأساسية', 'مواعيد رمضان'); w = win('مواعيد رمضان')
+await lastRow(w).locator('[data-f=from_date]').fill('2026-09-22'); await lastRow(w).locator('[data-f=to_date]').fill('2026-09-22')
+await btn(w, 'حفظ').click(); await p.waitForTimeout(250); check('ramadan: period saved', (await rowCount(w)) === 1); await closeWin(w)
+// 4 employees on the new shifts (licence registered → no trial cap)
+await menu('البيانات الأساسية', 'الموظفين')
+for (const [code, name, shift] of [['1004', 'مقسم الدوام', 'مقسم'], ['1005', 'ليلي الدوام', 'ليلي'], ['1006', 'مفتوح الدوام', 'مفتوح'], ['1007', 'متغير الدوام', 'متغير']]) {
+  check(`registered: add ${code} on «${shift}»`, (await addEmployee(code, name, { shift, extra: { hire_date: '2026-09-01' } })) === true)
+}
+// photo on 1004
+await ew.locator('tbody tr', { hasText: '1004' }).dblclick(); await p.waitForTimeout(250); ef = win('تعديل موظف')
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGNQaLiAFTEMLQkAxtVcAVQ5TgQAAAAASUVORK5CYII=', 'base64')
+fs.writeFileSync(`${UD}/p.png`, png)
+await ef.locator('.photo input[type=file]').setInputFiles(`${UD}/p.png`); await p.waitForTimeout(400)
+await btn(ef, 'حفظ').click(); await p.waitForTimeout(300); await okMsg()
+await ew.locator('tbody tr', { hasText: '1004' }).dblclick(); await p.waitForTimeout(250); ef = win('تعديل موظف')
+check('employee photo: saved and shown', (await ef.locator('.photo img').count()) === 1); await snap('v2-employee-photo')
+// shift change from a date: 1002 → «مسائي» from 2026-09-21 (no timings → off)
+await closeWin(ef)
+await ew.locator('tbody tr', { hasText: '1002' }).dblclick(); await p.waitForTimeout(250); ef = win('تعديل موظف')
+await ef.locator('[data-f=shift_group_id]').selectOption({ label: 'مسائي' }); await btn(ef, 'حفظ').click(); await p.waitForTimeout(200)
+check('shift change: asks the start date', /يبدأ الدوام الجديد من/.test(await dlgText()))
+await p.locator('#sf').fill('2026-09-21'); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(300); await okMsg()
+await closeWin(ew)
+// punches for the new shifts
+fs.writeFileSync(`${UD}/att2.dat`, [
+  '1004,2026-09-19 08:05', '1004,2026-09-19 12:00', '1004,2026-09-19 16:20', '1004,2026-09-19 20:00',   // split: 20 late in وردية 2
+  '1005,2026-09-19 21:58', '1005,2026-09-20 06:02',                                                   // night: 1 shift across midnight
+  '1006,2026-09-19 09:00', '1006,2026-09-19 15:00', '1006,2026-09-22 09:00', '1006,2026-09-22 14:00',   // open: 2h short / Ramadan 5h ok
+  '1007,2026-09-19 07:00', '1007,2026-09-19 15:00', '1007,2026-09-22 15:10', '1007,2026-09-22 23:00',   // rotating
+  '1002,2026-09-21 08:00', '1002,2026-09-21 16:00', '1001,2026-09-21 08:05', '1001,2026-09-21 16:00'].join('\n'))
+await menu('الإجراءات', 'قراءة الحركات'); await p.locator('#rp-file').setInputFiles(`${UD}/att2.dat`)
+await p.locator('.dlg').getByRole('button', { name: 'قراءة من الملف' }).click(); await p.waitForTimeout(400)
+check('import 2: 18 new punches', /جديدة 18/.test(await p.locator('.dlg .err').textContent()), await p.locator('.dlg .err').textContent())
+await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
+// detailed report 19..24 for everyone
+const detailed = async () => {
+  await menu('التقارير', 'الحضور والانصراف تفصيلي'); const rw = win('الحضور والانصراف تفصيلي')
+  await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'عرض').click(); await p.waitForTimeout(300)
+  const data = await rw.locator('.report-out').evaluate((out) => {
+    const res = {}; let code = null
+    for (const el of out.querySelectorAll('.rep-group, table.rep tbody tr')) {
+      if (el.classList.contains('rep-group')) code = el.textContent.split(' ')[0]
+      else { const c = [...el.children].map((td) => td.textContent); res[`${code}:${c[0]}`] = c }
+    }
+    return res
+  })
+  return [rw, data]
+}
+let [rw, D] = await detailed()
+const cell = (k, i) => D[k]?.[i]
+check('split shift: 20 min late in وردية 2', cell('1004:2026-09-19', 4) === '00:20' && cell('1004:2026-09-19', 8) === 'حضور متأخر', D['1004:2026-09-19']?.join('|'))
+check('split shift: worked 3:55 + 3:40 = 07:35', cell('1004:2026-09-19', 7) === '07:35', cell('1004:2026-09-19', 7))
+check('night shift: 21:58 → 06:02 is one present day', cell('1005:2026-09-19', 2) === '21:58' && cell('1005:2026-09-19', 3) === '06:02' && cell('1005:2026-09-19', 7) === '08:04', D['1005:2026-09-19']?.join('|'))
+check('night shift: next day does not reuse the 06:02 punch', cell('1005:2026-09-20', 8) === 'غياب', D['1005:2026-09-20']?.join('|'))
+check('open shift: 6h worked of 8h → 02:00 short', cell('1006:2026-09-19', 5) === '02:00' && cell('1006:2026-09-19', 7) === '06:00', D['1006:2026-09-19']?.join('|'))
+check('ramadan: open shift 5h required inside the Ramadan period → no shortfall', cell('1006:2026-09-22', 5) === '' && cell('1006:2026-09-22', 7) === '05:00', D['1006:2026-09-22']?.join('|'))
+check('rotation: day 1 present', cell('1007:2026-09-19', 8) === 'حضور', D['1007:2026-09-19']?.join('|'))
+check('rotation: day 2 absent', cell('1007:2026-09-20', 8) === 'غياب', D['1007:2026-09-20']?.join('|'))
+check('rotation: day 3 rest', cell('1007:2026-09-21', 8) === 'عطلة إسبوعية', D['1007:2026-09-21']?.join('|'))
+check('rotation: day 4 on the 2nd block (15:10, within grace)', cell('1007:2026-09-22', 8) === 'حضور' && cell('1007:2026-09-22', 2) === '15:10', D['1007:2026-09-22']?.join('|'))
+check('rotation: day 6 rest', cell('1007:2026-09-24', 8) === 'عطلة إسبوعية', D['1007:2026-09-24']?.join('|'))
+check('shift history: 1002 before the change still on the old shift (working day → absent, not the new shift\'s day off)', cell('1002:2026-09-19', 8) === 'غياب', D['1002:2026-09-19']?.join('|'))
+check('shift history: 1002 from 2026-09-21 on the new shift (no timings → off)', cell('1002:2026-09-21', 8) === 'عطلة إسبوعية', D['1002:2026-09-21']?.join('|'))
+await snap('v2-detailed')
+// Excel + PDF
+await btn(rw, 'Excel').click(); await p.waitForTimeout(800); await okMsg()
+const xl = fs.readFileSync(`${UD}/manual-backup.sqlite`)
+check('export: Excel file is a real .xlsx (zip)', xl.slice(0, 2).toString() === 'PK' && xl.length > 2000)
+await btn(rw, 'PDF').click(); await p.waitForTimeout(3000); const pdfMsg = await okMsg()
+const pdf = fs.readFileSync(`${UD}/manual-backup.sqlite`)
+check('export: PDF file generated', pdf.slice(0, 4).toString() === '%PDF' && pdf.length > 5000, pdfMsg)
+await closeWin(rw)
+// posting freezes the day: post 19..20, then move «صباحي م» check-in to 07:00
+await menu('الإجراءات', 'ترحيل الحركات'); await p.locator('#pd-from').fill('2026-09-19'); await p.locator('#pd-to').fill('2026-09-20')
+await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(300); await okMsg()
+;[gw, t] = await openGroupTimes('صباحي م')
+await t.locator('tbody tr').first().locator('[data-f=check_in]').fill('07:00'); await t.locator('tbody tr').first().locator('[data-f=start_in]').fill('06:00')
+await btn(t, 'نسخ لكل الأيام').click(); await btn(t, 'حفظ').click(); await p.waitForTimeout(250); await okMsg(); await closeWin(t); await closeWin(gw)
+;[rw, D] = await detailed()
+check('posting: posted day keeps its result after the shift is edited (still 30 min late)', cell('1001:2026-09-20', 4) === '00:30', D['1001:2026-09-20']?.join('|'))
+check('posting: unposted day uses the new times (08:05 vs 07:00 → late)', /متأخر/.test(cell('1001:2026-09-21', 8) || ''), D['1001:2026-09-21']?.join('|'))
+await closeWin(rw)
+await menu('الإجراءات', 'الغاء ترحيل'); w = win('الغاء ترحيل الحركات'); await w.locator('tbody tr').first().click(); await btn(w, 'حذف').click(); await p.waitForTimeout(150); await yes(); await closeWin(w)
+;[rw, D] = await detailed()
+check('unpost: the day is recomputed with the current times (08:30 vs 07:00 → 01:30 late)', cell('1001:2026-09-20', 4) === '01:30', D['1001:2026-09-20']?.join('|'))
+await closeWin(rw)
+// penalty rules + report
+await menu('الإعدادات', 'لائحة الجزاءات'); w = win('لائحة الجزاءات')
+const addRule = async (v, occ, act, amount) => { const r = lastRow(w); await r.locator('[data-f=violation]').selectOption({ label: v }); await r.locator('[data-f=occurrence]').selectOption({ index: occ }); await r.locator('[data-f=action]').selectOption({ label: act }); if (amount != null) await r.locator('[data-f=amount]').fill(String(amount)); await btn(w, 'حفظ').click(); await p.waitForTimeout(250) }
+await addRule('تأخير', 1, 'خصم دقائق', null); check('penalties: deduction without amount rejected', /القيمة مطلوبة/.test(await okMsg())); await btn(w, 'إهمال').click()
+await addRule('تأخير', 1, 'إنذار', null); await addRule('تأخير', 2, 'خصم دقائق', 30); await addRule('غياب', 1, 'خصم أيام', 1)
+check('penalties: 3 rules saved', (await rowCount(w)) === 3); await snap('v2-penalty-rules'); await closeWin(w)
+await menu('التقارير', 'الجزاءات'); rw = win('الجزاءات'); await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'عرض').click(); await p.waitForTimeout(300)
+const pen = await rw.locator('.report-out').textContent()
+check('penalties report: 1st late → إنذار, 2nd late → 30 min, absence → 1 day', /إنذار/.test(pen) && /خصم دقائق/.test(pen) && /خصم أيام/.test(pen), pen.slice(0, 200))
+await snap('v2-penalties'); await closeWin(rw)
+// permissions: user hr may only open «الموظفين»
+await menu('الإعدادات', 'اعدادات المستخدمين'); w = win('اعدادات المستخدمين')
+await w.locator('tbody tr', { hasText: 'hr' }).click(); await btn(w, 'الصلاحيات').click(); await p.waitForTimeout(200)
+await p.locator('.perm-grid input[value="البيانات الأساسية/الموظفين"]').check(); await snap('v2-permissions')
+await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250); await closeWin(w)
+// audit log
+await menu('أدوات', 'سجل الحركات'); w = win('سجل الحركات'); const audit = await w.locator('tbody').textContent()
+check('audit log: records logins, posting, employee edits, permissions', /تسجيل دخول/.test(audit) && /ترحيل الحركات/.test(audit) && /تعديل موظف/.test(audit) && /تعديل صلاحيات/.test(audit))
+await snap('v2-audit'); await closeWin(w)
+
 // ── 9. restart: data persisted, password changed, licence kept ──
 await app.close()
 const app2 = await electron.launch({ executablePath: `${ROOT}/node_modules/electron/dist/electron`, args: ['.', '--no-sandbox', `--user-data-dir=${UD}`], cwd: ROOT })
 const p2 = await app2.firstWindow(); await p2.waitForSelector('text=شاشة الدخول')
 await p2.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p2.waitForTimeout(300)
 check('restart: old empty password no longer works', /غير صحيحة/.test(await p2.locator('.dlg .err').textContent()))
-await p2.locator('#pass').fill('admin1'); await p2.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p2.waitForTimeout(700)
-check('restart: login with new password', await p2.locator('#home').isVisible())
-check('restart: licence kept', /Registered/.test(await p2.locator('#caption-text').textContent()))
-await p2.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).click(); await p2.locator('.menu.open .drop button', { hasText: 'الموظفين' }).first().click(); await p2.waitForTimeout(300)
-check('restart: employees persisted (2 after purge)', (await p2.locator('.win tbody tr').count()) === 2)
-check('restart: automatic daily backup created', fs.existsSync(`${UD}/backups`) && fs.readdirSync(`${UD}/backups`).length >= 1)
+await p2.locator('#user').fill('hr'); await p2.locator('#pass').fill('1234'); await p2.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p2.waitForTimeout(700)
+check('permissions: restricted user sees only permitted menus', (await p2.locator('#menubar .menu').count()) === 3 && (await p2.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).count()) === 1)
+await p2.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).click(); await p2.waitForTimeout(150)
+check('permissions: only «الموظفين» inside', (await p2.locator('.menu.open .drop button').count()) === 1)
+await p2.locator('body').click({ position: { x: 5, y: 700 } })
+await p2.locator('.tile', { hasText: 'التجهيز' }).click(); await p2.waitForTimeout(150)
+check('permissions: home tile blocked without permission', /ليس لديك صلاحية/.test(await p2.locator('.dlg-backdrop .body').last().textContent()))
 await app2.close()
+const app3 = await electron.launch({ executablePath: `${ROOT}/node_modules/electron/dist/electron`, args: ['.', '--no-sandbox', `--user-data-dir=${UD}`], cwd: ROOT })
+const p3 = await app3.firstWindow(); await p3.waitForSelector('text=شاشة الدخول')
+await p3.locator('#pass').fill('admin1'); await p3.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p3.waitForTimeout(700)
+check('restart: login with new password', await p3.locator('#home').isVisible())
+check('restart: licence kept', /Registered/.test(await p3.locator('#caption-text').textContent()))
+await p3.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).click(); await p3.locator('.menu.open .drop button', { hasText: 'الموظفين' }).first().click(); await p3.waitForTimeout(300)
+check('restart: employees persisted (6 after purge)', (await p3.locator('.win tbody tr').count()) === 6)
+check('restart: automatic daily backup created', fs.existsSync(`${UD}/backups`) && fs.readdirSync(`${UD}/backups`).length >= 1)
+await app3.close()
 
 check('no page errors during the whole run', errs.length === 0, errs.slice(0, 3).join(' || '))
 console.log(results.join('\n'))

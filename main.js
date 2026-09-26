@@ -101,5 +101,35 @@ ipcMain.handle('db:backup', async (e, year, bytes) => {
   return { ok: true, path: filePath }
 })
 
+const FILTERS = { xlsx: [{ name: 'Excel', extensions: ['xlsx'] }], pdf: [{ name: 'PDF', extensions: ['pdf'] }] }
+async function askSavePath(e, name, ext) {
+  const { canceled, filePath } = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), {
+    defaultPath: path.join(app.getPath('documents'), name.replace(/[\\/:*?"<>|]/g, ' ')), filters: FILTERS[ext] || [],
+  })
+  return canceled ? null : filePath
+}
+ipcMain.handle('file:save', async (e, name, bytes, ext) => {
+  const fp = await askSavePath(e, name, ext)
+  if (!fp) return { ok: false }
+  fs.writeFileSync(fp, Buffer.from(bytes))
+  return { ok: true, path: fp }
+})
+// Report → PDF through Chromium's own renderer (keeps the Arabic shaping and RTL)
+ipcMain.handle('file:pdf', async (e, name, html) => {
+  const fp = await askSavePath(e, name, 'pdf')
+  if (!fp) return { ok: false }
+  const w = new BrowserWindow({ show: false, webPreferences: { javascript: false } })
+  try {
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    const pdf = await w.webContents.printToPDF({ pageSize: 'A4', printBackground: true, margins: { marginType: 'custom', top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 } })
+    fs.writeFileSync(fp, pdf)
+    return { ok: true, path: fp }
+  } catch (err) {
+    return { ok: false, error: 'تعذّر إنشاء ملف PDF' }
+  } finally {
+    w.destroy()
+  }
+})
+
 app.whenReady().then(() => { dailyBackup(); createWindow() })
 app.on('window-all-closed', () => app.quit())

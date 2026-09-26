@@ -13,12 +13,20 @@ const DAY_NAMES = ['السبت', 'الأحد', 'الإثنين', 'الثلاثا
 
 const REPORTS = {
   'مواعيد العمل': { noPeriod: true, build: () => {
-    const groups = DB.all('SELECT * FROM shift_groups ORDER BY id')
-    const t = DB.all('SELECT * FROM shift_times ORDER BY group_id, day')
     const rows = []
-    for (const g of groups) for (const x of t.filter((x) => x.group_id === g.id))
-      rows.push([g.name_ar, DAY_NAMES[x.day], x.is_off ? 'عطلة' : x.check_in, x.is_off ? '' : x.check_out, x.is_off ? '' : x.late_min, x.is_off ? '' : x.early_min])
-    return { head: ['المجموعة', 'اليوم', 'الحضور', 'الانصراف', 'التأخير المسموح', 'الانصراف المبكر'], rows }
+    const kind = (g) => (g.rotational ? 'ورديات متغيرة' : g.open_shift ? 'دوام مفتوح' : 'دوام عادي')
+    for (const g of DB.all('SELECT * FROM shift_groups ORDER BY id')) {
+      const ws = DB.all("SELECT * FROM shift_windows WHERE group_id = ? AND calendar = 'Y' ORDER BY slot, window_no", [g.id])
+      const blocks = Object.fromEntries(DB.all("SELECT * FROM rotation_blocks WHERE group_id = ? AND calendar = 'Y'", [g.id]).map((b) => [b.idx, b]))
+      if (!ws.length) rows.push([g.name_ar, kind(g), '—', '', '', '', ''])
+      for (const w of ws) {
+        const slot = g.rotational ? `مجموعة ${w.slot + 1} (${blocks[w.slot]?.work_days ?? ''} دوام / ${blocks[w.slot]?.rest_days ?? ''} عطلة)` : DAY_NAMES[w.slot]
+        if (w.is_off) rows.push([g.name_ar, kind(g), slot, 'عطلة', '', '', ''])
+        else if (g.open_shift) rows.push([g.name_ar, kind(g), slot, `${H(w.required_min)} ساعة`, '', '', w.extends_next_day ? `يمتد حتى ${w.day_end}` : ''])
+        else rows.push([g.name_ar, kind(g), slot, `${WIN_NAMES[w.window_no - 1]}`, w.check_in, w.check_out, `${w.late_min} / ${w.early_min}${w.extended ? ' · ممتد' : ''}`])
+      }
+    }
+    return { head: ['المجموعة', 'النوع', 'اليوم / المجموعة', 'الوردية', 'الحضور', 'الانصراف', 'تأخير / انصراف مبكر'], rows }
   } },
   'الموظفين': { noPeriod: true, build: () => ({
     head: ['الكود', 'الاسم', 'الإدارة', 'القسم', 'الدوام', 'تاريخ التعيين', 'الحالة'],
@@ -65,7 +73,7 @@ const REPORTS = {
   }) },
   'حالة اليوم': { singleDay: true, build: (f) => ({
     head: ['الكود', 'الموظف', 'الإدارة', 'الدوام', 'الحضور', 'الانصراف', 'التأخير', 'الحالة'],
-    rows: Engine.compute(f).map((r) => [r.emp.code, r.emp.name_ar, r.emp.dep, r.emp.shift, H(r.in), H(r.out), r.late ? H(r.late) : '', r.status]),
+    rows: Engine.compute(f).map((r) => [r.emp.code, r.emp.name_ar, r.emp.dep, r.shift, H(r.in), H(r.out), r.late ? H(r.late) : '', r.status]),
   }) },
   'الحضور والانصراف بالحركات': { build: (f) => ({
     head: ['الكود', 'الموظف', 'التاريخ', 'اليوم', 'الحركات', 'الحالة'],
@@ -73,6 +81,54 @@ const REPORTS = {
       .map((r) => [r.emp.code, r.emp.name_ar, r.date, DAY_NAMES[r.day], r.punches.map(H).join('  ·  '), r.status]),
   }) },
 }
+
+// «الجزاءات»: each violation's n-th occurrence in the calendar month picks the rule
+// with the highest «التكرار» ≤ n (so a «4» rule covers the 4th and later ones).
+const VIOLATIONS = { late: 'تأخير', early: 'انصراف مبكر', absent: 'غياب', missing_out: 'عدم تسجيل انصراف' }
+const ACTIONS = { warning: 'إنذار', minutes: 'خصم دقائق', days: 'خصم أيام' }
+function penaltyRows(f) {
+  const rules = DB.all('SELECT * FROM penalty_rules ORDER BY occurrence')
+  const out = []
+  for (const rs of byEmp(Engine.compute(f))) {
+    const counts = {}
+    for (const r of rs) {
+      const found = []
+      if (r.kind === 'absent') found.push(['absent', 0])
+      if (r.late) found.push(['late', r.late])
+      if (r.early) found.push(['early', r.early])
+      if (r.missingOut) found.push(['missing_out', 0])
+      for (const [v, mins] of found) {
+        const eligible = rules.filter((x) => x.violation === v && mins >= (x.min_minutes || 0))
+        if (!eligible.length) continue
+        const key = `${v}:${r.date.slice(0, 7)}`
+        const n = (counts[key] = (counts[key] || 0) + 1)
+        const rule = eligible.filter((x) => x.occurrence <= n).at(-1)
+        if (!rule) continue
+        out.push({ emp: r.emp, date: r.date, v, mins, n, rule })
+      }
+    }
+  }
+  return out
+}
+REPORTS['الجزاءات'] = { build: (f) => {
+  const rows = penaltyRows(f)
+  const totals = {}
+  for (const x of rows) {
+    const t = (totals[x.emp.id] ||= { emp: x.emp, minutes: 0, days: 0, warnings: 0 })
+    if (x.rule.action === 'minutes') t.minutes += x.rule.amount
+    else if (x.rule.action === 'days') t.days += x.rule.amount
+    else t.warnings++
+  }
+  return {
+    grouped: true,
+    head: ['التاريخ', 'المخالفة', 'المدة', 'التكرار', 'الجزاء', 'القيمة'],
+    groups: Object.values(totals).map((t) => ({
+      title: `${t.emp.code} — ${t.emp.name_ar}`,
+      rows: rows.filter((x) => x.emp.id === t.emp.id).map((x) => [x.date, VIOLATIONS[x.v], x.mins ? H(x.mins) : '', x.n, ACTIONS[x.rule.action], x.rule.action === 'warning' ? '' : x.rule.amount]),
+      foot: ['الإجمالي', '', '', '', `إنذارات ${t.warnings}`, `${t.minutes} دقيقة · ${t.days} يوم`],
+    })),
+  }
+} }
 
 const table = (head, rows, foot) => `<table class="rep"><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
   <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${UI.esc(c ?? '')}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="empty">لا توجد بيانات</td></tr>`}</tbody>
@@ -94,7 +150,9 @@ function openReport(name) {
     const out = UI.el('<div class="report-out"></div>')
     const bar = UI.toolbar([
       { key: 'show', label: 'عرض', icon: 'reports', onClick: show },
-      { key: 'print', label: 'طباعة', icon: 'print', onClick: print },
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => output('print') },
+      { key: 'pdf', label: 'PDF', icon: 'pdf', onClick: () => output('pdf') },
+      { key: 'excel', label: 'Excel', icon: 'excel', onClick: () => output('excel') },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
     body.append(bar, filters, out)
@@ -110,14 +168,19 @@ function openReport(name) {
       if (!def.noPeriod && (!from || !to || from > to)) return UI.message('فترة غير صحيحة')
       const f = { from, to, departmentId: +v('#r-dep') || null, employeeIds: v('#r-emp') ? [+v('#r-emp')] : null }
       const res = def.build(f)
-      const company = DB.one("SELECT value FROM meta WHERE key = 'company_name'")?.value || ''
+      const m = (k) => DB.one('SELECT value FROM meta WHERE key = ?', [k])?.value || ''
       const period = def.noPeriod ? '' : def.singleDay ? `التاريخ: ${from}` : `من ${from} إلى ${to}`
-      html = `<div class="rep-head"><div class="co">${UI.esc(company)}</div><h2>${UI.esc(name)}</h2><div class="per">${period}</div></div>` +
+      const now = new Date()
+      // Apex-style letterhead: company (right) · report title (centre) · print date/user (left)
+      html = `<div class="rep-head"><div class="lh-r"><div class="co">${UI.esc(m('company_name'))}</div><div>${UI.esc(m('company_address'))}</div><div dir="ltr">${UI.esc(m('company_phone'))}</div></div>
+        <div class="lh-c"><h2>${UI.esc(name)}</h2><div class="per">${period}</div></div>
+        <div class="lh-l"><div class="co-en" dir="ltr">${UI.esc(m('company_name_en'))}</div><div>تاريخ الطباعة: ${Engine.iso(now)} ${Engine.hm(now.getHours() * 60 + now.getMinutes())}</div><div>المستخدم: ${UI.esc(Session.username)}</div></div></div>` +
         (res.grouped ? res.groups.map((g) => `<div class="rep-group">${UI.esc(g.title)}</div>${table(res.head, g.rows, g.foot)}`).join('') || '<p class="empty">لا توجد بيانات</p>'
           : table(res.head, res.rows))
       out.innerHTML = html
     }
-    async function print() {
+    // print / PDF / Excel all count as one «طباعة» against the trial allowance
+    async function output(kind) {
       if (!html) show()
       if (!licence.ok) {
         const n = DB.one('SELECT n FROM print_counts WHERE report = ?', [name])?.n || 0
@@ -125,6 +188,29 @@ function openReport(name) {
         DB.run('INSERT INTO print_counts (report, n) VALUES (?, 1) ON CONFLICT(report) DO UPDATE SET n = n + 1', [name])
         await DB.flush()
         note()
+      }
+      const file = `${name} ${Engine.today()}`
+      if (kind === 'excel') {
+        const wb = XLSX.utils.book_new()
+        out.querySelectorAll('table.rep').forEach((t, i) => {
+          const title = out.querySelectorAll('.rep-group')[i]?.textContent || name
+          const ws = XLSX.utils.table_to_sheet(t, { raw: true })
+          ws['!RTL'] = true
+          XLSX.utils.book_append_sheet(wb, ws, title.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || `ورقة ${i + 1}`)
+        })
+        if (!wb.SheetNames.length) return UI.message('لا توجد بيانات للتصدير')
+        wb.Workbook = { Views: [{ RTL: true }] }
+        const res = await window.bridge.saveFile(`${file}.xlsx`, XLSX.write(wb, { bookType: 'xlsx', type: 'array' }), 'xlsx')
+        if (res?.ok) UI.message(`تم الحفظ: ${res.path}`)
+        return
+      }
+      if (kind === 'pdf') {
+        const css = [...document.styleSheets].map((ss) => { try { return [...ss.cssRules].map((r) => r.cssText).join('\n') } catch { return '' } }).join('\n')
+        const res = await window.bridge.savePdf(`${file}.pdf`, `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${css}</style></head>
+          <body class="printing pdf"><div id="print-area" style="display:block">${html}</div></body></html>`)
+        if (res?.ok) UI.message(`تم الحفظ: ${res.path}`)
+        else if (res?.error) UI.message(res.error)
+        return
       }
       const area = document.getElementById('print-area')
       area.innerHTML = html

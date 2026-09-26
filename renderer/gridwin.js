@@ -10,6 +10,9 @@
 //   beforeDelete?: (row) => string|null,                    // return a message to block
 //   onRowOpen?: (row) => void,                              // double-click
 //   deleteOnly?: true,                                      // list with «حذف» only (no new/edit)
+//   onDeleteRow?: (row) => void,                            // custom delete (inside the save transaction)
+//   validate?: (row) => string|null,                        // per-row check before saving
+//   afterSave?: () => void,
 // }
 function openGridWindow(cfg) {
   UI.openWindow(cfg.id, cfg.title, { width: cfg.width || 640, height: cfg.height || 360 }, (body, win) => {
@@ -97,6 +100,8 @@ function openGridWindow(cfg) {
           if (c.required && !String(r[c.field] ?? '').trim()) return UI.message(`${c.label} مطلوب`)
           if (c.type === 'time' && r[c.field] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(r[c.field])) return UI.message(`${c.label}: الوقت يجب أن يكون بصيغة HH:MM`)
         }
+        const err = cfg.validate?.(r)
+        if (err) return UI.message(err)
       }
       const val = (c, r) => (c.type === 'check' ? (r[c.field] ? 1 : 0) : typeof r[c.field] === 'string' ? r[c.field].trim() : r[c.field] ?? '')
       const saveCols = editable.filter((c) => !c.virtual)
@@ -105,14 +110,16 @@ function openGridWindow(cfg) {
         for (const r of rows) {
           if (r._state === 'new') DB.run(`INSERT INTO ${cfg.table} (${saveCols.map((c) => c.field).join(', ')}) VALUES (${saveCols.map(() => '?').join(', ')})`, saveCols.map((c) => val(c, r)))
           else if (r._state === 'changed') DB.run(`UPDATE ${cfg.table} SET ${saveCols.map((c) => `${c.field} = ?`).join(', ')} WHERE id = ?`, [...saveCols.map((c) => val(c, r)), r.id])
-          else if (r._state === 'deleted' && r.id) DB.run(`DELETE FROM ${cfg.table} WHERE id = ?`, [r.id])
+          else if (r._state === 'deleted' && r.id) cfg.onDeleteRow ? cfg.onDeleteRow(r) : DB.run(`DELETE FROM ${cfg.table} WHERE id = ?`, [r.id])
         }
         DB.run('COMMIT')
       } catch (e) {
         DB.run('ROLLBACK')
         return UI.message(/UNIQUE/.test(e.message) ? 'القيمة مكررة — يوجد سجل بنفس البيانات' : `تعذّر الحفظ: ${e.message}`)
       }
+      DB.audit('حفظ', cfg.title, rows.filter((r) => r._state !== 'clean').map((r) => `${r._state}:${r.id ?? ''}`).join(' '))
       await DB.flush()
+      cfg.afterSave?.()
       load()
     }
 

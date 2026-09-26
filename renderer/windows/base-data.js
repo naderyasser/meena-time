@@ -89,13 +89,35 @@ function openShiftGroups() {
       { field: 'name_en', label: 'الاسم الأجنبي', type: 'en' },
       { field: 'total_minutes', label: 'الإجمالي', type: 'readonly', width: 80, format: hhmm },
       { field: 'open_shift', label: 'دوام مفتوح', type: 'check', width: 70 },
+      { field: 'rotational', label: 'ورديات متغيرة', type: 'check', width: 80 },
+      { field: 'start_date', label: 'تاريخ بدء العمل بالدوام', type: 'date', width: 140 },
     ],
+    width: 860,
+    validate: (r) => r.open_shift && r.rotational ? `«${r.name_ar}»: اختر دوام مفتوح أو ورديات متغيرة، وليس الاثنين`
+      : r.rotational && !r.start_date ? `«${r.name_ar}»: تاريخ بدء العمل بالدوام مطلوب للورديات المتغيرة` : null,
     extraButtons: [{ key: 'times', label: 'المواعيد', icon: 'clock', onClick: (ctx) => {
       const r = ctx.currentRow
       if (!r || !r.id) return UI.message('اختر مجموعة محفوظة أولاً')
       openShiftTimes(r, ctx.reload)
     } }],
     onRowOpen: (r, ctx) => r.id && openShiftTimes(r, ctx.reload),
-    beforeDelete: (r) => inUse('employees', 'shift_group_id', r.id, 'بيانات الموظفين'),
+    beforeDelete: (r) => inUse('employee_shifts', 'group_id', r.id, 'بيانات الموظفين (حالياً أو سابقاً)'),
+    onDeleteRow: (r) => {
+      DB.run('DELETE FROM shift_windows WHERE group_id = ?', [r.id])
+      DB.run('DELETE FROM rotation_blocks WHERE group_id = ?', [r.id])
+      DB.run('DELETE FROM shift_groups WHERE id = ?', [r.id])
+    },
+  })
+}
+
+function openRamadan() {
+  openGridWindow({
+    id: 'ramadan', title: 'مواعيد رمضان', table: 'ramadan_periods', orderBy: 'from_date DESC', width: 520,
+    help: 'حدد بداية ونهاية شهر رمضان لكل سنة. خلال هذه الفترة تُطبَّق «أيام رمضان» في مواعيد كل دوام (إن وُجدت).',
+    columns: [
+      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
+    ],
+    validate: (r) => r.from_date > r.to_date ? 'تاريخ البداية بعد النهاية' : null,
   })
 }
