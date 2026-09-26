@@ -5,9 +5,10 @@ const path = require('path')
 const fs = require('fs')
 const { requestCode, verifyLicence } = require('./lib/license')
 
-// Demo build: demo/demo-data.sqlite is bundled (tools/build-demo.sh) → own data
-// folder, starts with that data, all features unlocked. Normal builds have no demo/.
-const DEMO_DB = path.join(__dirname, 'demo', 'demo-data.sqlite')
+// Demo: own data folder, starts with the test data, all features unlocked.
+// Installer: demo/demo-data.sqlite is bundled by tools/build-demo.sh (normal
+// builds have no demo/). From source: `npm run demo` (= electron . --demo).
+const DEMO_DB = process.argv.includes('--demo') ? path.join(__dirname, 'tools', 'demo-data.sqlite') : path.join(__dirname, 'demo', 'demo-data.sqlite')
 const DEMO = fs.existsSync(DEMO_DB)
 if (DEMO) app.setPath('userData', path.join(app.getPath('appData'), 'Meena Time Demo'))
 const dataDir = () => app.getPath('userData')

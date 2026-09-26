@@ -22,6 +22,7 @@
 ```bash
 npm install
 npm start                                   # تشغيل البرنامج
+npm run demo                                # تشغيل بالبيانات التجريبية (tools/demo-data.sqlite) — دخول: أ / 1234، كل المزايا مفتوحة، بيانات منفصلة في «Meena Time Demo»
 xvfb-run -a node tools/full-test.mjs        # الاختبار الشامل (219 فحص على البرنامج الحقيقي)
 xvfb-run -a node tools/merge-test.mjs       # اختبار دمج قواعد بيانات الإصدارات القديمة
 xvfb-run -a node tools/perf-test.mjs        # الأداء على 200 موظف × سنة

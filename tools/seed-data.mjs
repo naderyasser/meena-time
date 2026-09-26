@@ -3,7 +3,7 @@
 // jobs, leave types, shifts with their windows, holidays — no personal data)
 // + synthetic employees, 2 months of punches, leaves and permissions.
 // Runs the real app so the file carries the exact schema. Login: أ / 1234
-//   xvfb-run -a node tools/seed-data.mjs  → dist/meena-time-test-data.sqlite
+//   xvfb-run -a node tools/seed-data.mjs  → dist/meena-time-test-data.sqlite + tools/demo-data.sqlite
 import { _electron as electron } from '/home/frappeuser/tamken3-audit/node_modules/playwright/index.mjs'
 import fs from 'fs'
 import path from 'path'
@@ -222,4 +222,5 @@ const summary = await p.evaluate(async (web) => {
 console.log(JSON.stringify(summary))
 await app.close()
 fs.copyFileSync(`${UD}/meena-time.sqlite`, OUT)
+fs.copyFileSync(OUT, `${ROOT}/tools/demo-data.sqlite`) // committed: `npm run demo` + tools/build-demo.sh
 console.log('→', OUT, fs.statSync(OUT).size, 'bytes')
