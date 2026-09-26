@@ -16,22 +16,20 @@ const MENUS = [
     ['تعريف الأجهزة', openDevices], ['العطلات الرسمية', openHolidays],
   ] },
   { label: 'الإجراءات', icon: 'm_proc', items: [
-    ['قراءة الحركات (شبكة - ملف)'], ['الغاء الحركات المسحوبة خلال فترة'], ['عرض الحركات'], '-',
-    ['إضافة وتعديل الحركات لموظف'], ['الغاء الحركات المعدلة يدويا'], '-',
-    ['إضافة إجازات لموظف'], ['إضافة أذونات لموظف'], '-',
-    ['ترحيل الحركات'], ['الغاء ترحيل الحركات'], ['الغاء جميع بيانات الموظف بالنظام'],
+    ['قراءة الحركات (شبكة - ملف)', openReadPunches], ['الغاء الحركات المسحوبة خلال فترة', () => deletePunchesInPeriod(['device', 'file'], 'الغاء الحركات المسحوبة خلال فترة')],
+    ['عرض الحركات', openViewPunches], '-',
+    ['إضافة وتعديل الحركات لموظف', openEditPunches], ['الغاء الحركات المعدلة يدويا', () => deletePunchesInPeriod(['manual'], 'الغاء الحركات المعدلة يدويا')], '-',
+    ['إضافة إجازات لموظف', openLeaves], ['إضافة أذونات لموظف', openPermissions], '-',
+    ['ترحيل الحركات', postPunches], ['الغاء ترحيل الحركات', openUnpost], ['الغاء جميع بيانات الموظف بالنظام', purgeEmployee],
   ] },
-  { label: 'التقارير', icon: 'm_rep', items: [
-    ['مواعيد العمل'], ['الموظفين'], ['الحركات الغير مكتملة'], ['التأخير عن بداية الدوام اليومي'],
-    ['التأخير عن الدوام خلال فترة'], ['إجازات الموظفين'], ['الحضور والانصراف تفصيلي'],
-    ['الحضور والانصراف إجمالي'], ['الغياب خلال فترة'], ['حالة اليوم'],
-  ] },
-  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة'], ['اعدادات المستخدمين'], ['اعدادات النظام']] },
-  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية']] },
+  { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
+  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings]] },
+  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow]] },
   { label: 'مساعدة', icon: 'm_help', items: [['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
 ]
 
 let licence = { ok: false }
+const Session = { userId: null, username: '' }
 
 function setCaption() {
   document.getElementById('caption-text').textContent =
@@ -83,9 +81,9 @@ function renderHome() {
         <div class="tile" data-t="setup">${ICONS.tools}<span>التجهيز</span></div>
       </div></div>`)
   home.querySelector('[data-t=setup]').onclick = openShiftGroups
-  home.querySelector('[data-t=users]').onclick = openEmployees
-  home.querySelector('[data-t=reports]').onclick = soon('التقارير')
-  home.querySelector('[data-t=proc]').onclick = soon('الإجراءات')
+  home.querySelector('[data-t=users]').onclick = openUsers
+  home.querySelector('[data-t=reports]').onclick = () => openReport('حالة اليوم')
+  home.querySelector('[data-t=proc]').onclick = openReadPunches
   desk.prepend(home)
 }
 
@@ -144,8 +142,11 @@ async function login() {
         const user = d.root.querySelector('#user').value.trim()
         const pass = d.root.querySelector('#pass').value
         await DB.open(year)
-        const u = DB.one('SELECT id FROM users WHERE username = ? AND password = ?', [user, pass])
-        if (!u) return d.error('اسم المستخدم أو كلمة المرور غير صحيحة')
+        const u = DB.one('SELECT * FROM users WHERE username = ?', [user])
+        if (!u || !(await checkPassword(u.password, pass))) return d.error('اسم المستخدم أو كلمة المرور غير صحيحة')
+        if (!u.password?.startsWith('sha256$')) { DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(pass), u.id]); await DB.flush() }
+        Session.userId = u.id
+        Session.username = u.username
         d.close(true)
       } },
       { label: 'الغاء', icon: 'cancel', onClick: () => window.close() },

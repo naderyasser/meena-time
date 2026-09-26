@@ -58,6 +58,20 @@ const DB = {
         mobile TEXT, email TEXT, address TEXT,
         ot_deduct_late INTEGER DEFAULT 0, ot_before INTEGER DEFAULT 0, ot_after INTEGER DEFAULT 0,
         ot_holidays INTEGER DEFAULT 0, no_punch_out INTEGER DEFAULT 0);
+      -- one row per fingerprint punch; source = device | file | manual
+      CREATE TABLE IF NOT EXISTS punches (
+        id INTEGER PRIMARY KEY, emp_code TEXT NOT NULL, ts TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'device',
+        device_id INTEGER, created_at TEXT DEFAULT (datetime('now','localtime')), UNIQUE (emp_code, ts));
+      CREATE INDEX IF NOT EXISTS punches_ts ON punches (ts);
+      CREATE TABLE IF NOT EXISTS leaves (
+        id INTEGER PRIMARY KEY, employee_id INTEGER NOT NULL, type_id INTEGER, from_date TEXT NOT NULL, to_date TEXT NOT NULL, notes TEXT);
+      CREATE TABLE IF NOT EXISTS permissions (
+        id INTEGER PRIMARY KEY, employee_id INTEGER NOT NULL, type_id INTEGER, date TEXT NOT NULL,
+        from_time TEXT NOT NULL, to_time TEXT NOT NULL, notes TEXT);
+      -- «ترحيل الحركات»: posted days are locked against punch edits until «الغاء ترحيل»
+      CREATE TABLE IF NOT EXISTS posted_periods (
+        id INTEGER PRIMARY KEY, from_date TEXT NOT NULL, to_date TEXT NOT NULL, posted_at TEXT DEFAULT (datetime('now','localtime')));
+      CREATE TABLE IF NOT EXISTS print_counts (report TEXT PRIMARY KEY, n INTEGER DEFAULT 0);
     `)
     if (!this.one('SELECT 1 FROM users LIMIT 1')) {
       // first run: default admin «أ» with an empty password, like the video's login

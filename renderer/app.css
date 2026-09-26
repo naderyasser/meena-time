@@ -147,3 +147,28 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 12px; }
 .form input[type=text], .form input[type=date], .form select { font: inherit; height: 23px; padding: 1px 4px; border: 1px solid #a9b3bd; width: 100%; background: #fff; }
 .form .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
 .form .chk { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+
+/* ── filter row, reports, printing ───────────────────────── */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 5px 8px; background: #f7f8f9; border-bottom: 1px solid #d3d8dd; font-size: 12px; }
+.filters label { color: #1b3d8f; font-weight: bold; }
+.filters input, .filters select { font: inherit; height: 23px; border: 1px solid #a9b3bd; padding: 0 4px; }
+.filters button { font: inherit; font-weight: bold; padding: 2px 14px; border: 1px solid #aeb7c0; background: linear-gradient(#fff, #e9ecef); cursor: pointer; color: #1b3d8f; }
+.filters .trial-note { margin-inline-start: auto; color: #b3261e; font-weight: bold; }
+.report-out { flex: 1; overflow: auto; background: #fff; margin: 4px; border: 1px solid #b7bfc7; padding: 8px 12px; }
+.rep-head { text-align: center; margin-bottom: 8px; }
+.rep-head .co { font-weight: bold; font-size: 15px; }
+.rep-head h2 { margin: 4px 0; font-size: 17px; color: #0b3fa8; }
+.rep-head .per { font-size: 12px; color: #333; }
+.rep-group { background: #e3edf7; border: 1px solid #9fb6cf; padding: 3px 8px; font-weight: bold; margin-top: 10px; }
+table.rep { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 6px; }
+table.rep th { background: #eceff2; border: 1px solid #555; padding: 3px 4px; }
+table.rep td { border: 1px solid #777; padding: 2px 4px; text-align: center; }
+table.rep tfoot td { font-weight: bold; background: #f4f4f4; }
+.empty { text-align: center; color: #777; padding: 12px; }
+#print-area { display: none; }
+@media print {
+  body.printing > *:not(#print-area) { display: none !important; }
+  body.printing #print-area { display: block; direction: rtl; }
+  body.printing { background: #fff; overflow: visible; }
+  @page { size: A4; margin: 12mm; }
+}

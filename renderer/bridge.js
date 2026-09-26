@@ -10,5 +10,14 @@ if (!window.bridge) {
     saveDb: (year, bytes) => fetch(`/api/db/${year}`, { method: 'PUT', body: bytes }).then((r) => r.json()),
     licenceStatus: () => fetch('/api/licence').then((r) => r.json()),
     register: (code) => fetch('/api/register', { method: 'POST', body: code }).then((r) => r.json()),
+    backup: async (year, bytes) => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([bytes]))
+      a.download = `meena-time-${year}.sqlite`
+      a.click()
+      return { ok: true, path: a.download }
+    },
+    paths: async () => ({ data: '(preview) preview-data/', backups: '(preview) —' }),
+    readDevice: async () => ({ ok: false, error: 'القراءة من الجهاز تعمل في البرنامج المثبّت فقط (غير متاحة في المعاينة)' }),
   }
 }
