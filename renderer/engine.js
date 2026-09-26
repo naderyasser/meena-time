@@ -49,7 +49,8 @@ const Engine = {
     const blocks = {}
     for (const b of DB.all('SELECT * FROM rotation_blocks ORDER BY idx')) ((blocks[b.group_id] ||= {})[b.calendar] ||= []).push(b)
     const ramadan = DB.all('SELECT * FROM ramadan_periods ORDER BY from_date')
-    return { groups, win, blocks, ramadan }
+    const hasRamadanTimes = Object.fromEntries(Object.entries(win).map(([gid, w]) => [gid, Object.keys(w).some((k) => k.startsWith('R:'))]))
+    return { groups, win, blocks, ramadan, hasRamadanTimes }
   },
   schedule(cfg, groupId, date) {
     const g = cfg.groups[groupId]
@@ -66,7 +67,7 @@ const Engine = {
       for (const b of bl) {
         if (pos < b.work_days) {
           const rows = (cfg.win[groupId]?.[`${cal}:${b.idx}`] || []).filter((w) => !w.is_off)
-          return rows.length ? { kind: 'windows', windows: this.resolveWindows(rows) } : { kind: 'off' }
+          return rows.length ? { kind: 'windows', windows: this.resolvedFor(cfg, `${groupId}:${cal}:${b.idx}`, rows) } : { kind: 'off' }
         }
         pos -= b.work_days
         if (pos < b.rest_days) return { kind: 'off' }
@@ -75,12 +76,13 @@ const Engine = {
       return { kind: 'off' }
     }
     const day = this.DAY_INDEX(date)
-    const useR = rp && Object.keys(cfg.win[groupId] || {}).some((k) => k.startsWith('R:'))
+    const useR = rp && cfg.hasRamadanTimes[groupId]
     const rows = cfg.win[groupId]?.[`${useR ? 'R' : 'Y'}:${day}`] || []
     if (!rows.length || rows[0].is_off) return { kind: 'off' }
     if (g.open_shift) return { kind: 'open', open: rows[0] }
-    return { kind: 'windows', windows: this.resolveWindows(rows) }
+    return { kind: 'windows', windows: this.resolvedFor(cfg, `${groupId}:${useR ? 'R' : 'Y'}:${day}`, rows) }
   },
+  resolvedFor(cfg, key, rows) { return ((cfg._resolved ||= {})[key] ||= this.resolveWindows(rows)) },
 
   // rows: one per employee per date → {emp, date, day, status, kind, in, out, late, early, ot, worked, punches, missingOut}
   compute({ from, to, employeeIds = null, departmentId = null }) {
@@ -99,17 +101,26 @@ const Engine = {
     for (const p of DB.all('SELECT * FROM posted_attendance WHERE date BETWEEN ? AND ?', [from, to])) posted[`${p.employee_id}:${p.date}`] = JSON.parse(p.data)
     const dayBefore = this.addDays(from, -1)
     const punches = {}
-    for (const p of DB.all('SELECT emp_code, ts FROM punches WHERE ts >= ? AND ts < ? ORDER BY ts', [dayBefore, this.addDays(to, 2)])) {
+    const codeFilter = employeeIds || departmentId ? emps.map((e) => e.code) : null
+    for (const p of DB.all(`SELECT emp_code, ts FROM punches WHERE ts >= ? AND ts < ? ${codeFilter ? `AND emp_code IN (${codeFilter.map(() => '?').join(',') || "''"})` : ''} ORDER BY ts`,
+      [dayBefore, this.addDays(to, 2), ...(codeFilter || [])])) {
       ;(punches[p.emp_code] ||= []).push(p.ts)
     }
     const today = this.today()
+    const days = this.dates(from, to)
+    const nextOf = Object.fromEntries(days.map((d, i) => [d, days[i + 1] || this.addDays(d, 1)]))
+    const dayIdx = Object.fromEntries(days.map((d) => [d, this.DAY_INDEX(d)]))
+    const holidayOn = Object.fromEntries(days.map((d) => [d, holidays.find((h) => h.from_date <= d && h.to_date >= d)]))
     const rows = []
     for (const e of emps) {
       const hist = shiftHist[e.id] || []
       const groupAt = (date) => { let g = null; for (const s of hist) if (s.from_date <= date) g = s.group_id; return g ?? (hist.length ? null : e.shift_group_id) }
-      // absolute minutes of each punch relative to a given date's midnight
-      const empTs = (punches[e.code] || []).map((ts) => ({ date: ts.slice(0, 10), min: this.toMin(ts.slice(11, 16)) }))
-      const poolFor = (date) => empTs.map((p) => ({ min: p.min + this.diffDays(date, p.date) * 1440 })).filter((p) => p.min > -1440 && p.min < 2880)
+      // punches indexed by date → minutes; a day sees its own punches plus the next
+      // day's shifted by +24h (for a «شفت ممتد» / open shift running past midnight)
+      const byDate = {}
+      for (const ts of punches[e.code] || []) (byDate[ts.slice(0, 10)] ||= []).push(this.toMin(ts.slice(11, 16)))
+      const poolFor = (date) => [...(byDate[date] || []), ...(byDate[nextOf[date]] || []).map((m) => m + 1440)]
+      const empLeaves = leaves.filter((l) => l.employee_id === e.id)
       // a previous day's extended window "owns" its after-midnight punches
       let consumedUntil = -Infinity
       const prev = this.schedule(cfg, groupAt(dayBefore), dayBefore)
@@ -117,8 +128,8 @@ const Engine = {
         const lastEnd = prev.windows.at(-1).end_out
         if (lastEnd > 1440) consumedUntil = lastEnd - 1440
       } else if (prev.kind === 'open' && prev.open.extends_next_day) consumedUntil = this.toMin(prev.open.day_end) || 0
-      for (const date of this.dates(from, to)) {
-        const day = this.DAY_INDEX(date)
+      for (const date of days) {
+        const day = dayIdx[date]
         if (e.hire_date && date < e.hire_date) continue
         const snap = posted[`${e.id}:${date}`]
         if (snap) { rows.push({ ...snap, emp: e, date, day, posted: true }); consumedUntil = snap._consumedUntil ?? -Infinity; continue }
@@ -126,11 +137,11 @@ const Engine = {
         const sch = this.schedule(cfg, gid, date)
         // this day's punches (+ next day's, for an extended last وردية), minus those
         // an extended shift of the previous day already owns
-        const all = poolFor(date).map((p) => p.min).filter((m) => m >= 0 && m > consumedUntil)
+        const all = poolFor(date).filter((m) => m > consumedUntil)
         const own = all.filter((m) => m < 1440)
         const base = { emp: e, date, day, shift: cfg.groups[gid]?.name_ar || '', punches: own, in: null, out: null, late: 0, early: 0, ot: 0, worked: 0, missingOut: false }
-        const holiday = holidays.find((h) => h.from_date <= date && h.to_date >= date)
-        const leave = leaves.find((l) => l.employee_id === e.id && l.from_date <= date && l.to_date >= date)
+        const holiday = holidayOn[date]
+        const leave = empLeaves.find((l) => l.from_date <= date && l.to_date >= date)
         let r
         if (leave) r = { ...base, kind: 'leave', status: `إجازة${leave.type ? ' — ' + leave.type : ''}` }
         else if (holiday) r = { ...base, kind: 'holiday', status: `عطلة رسمية — ${holiday.name_ar}` }

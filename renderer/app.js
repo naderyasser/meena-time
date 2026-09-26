@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '0.2.0'
+const VERSION = '1.0.0'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -24,8 +24,8 @@ const MENUS = [
   ] },
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
   { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings]] },
-  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['سجل الحركات', openAuditLog]] },
-  { label: 'مساعدة', icon: 'm_help', items: [['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
+  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
+  { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
 ]
 
 let licence = { ok: false }
@@ -43,7 +43,7 @@ function buildMenu() {
     const menu = UI.el(`<div class="menu"><button>${ICONS[m.icon]}<span>${m.label}</span></button><div class="drop"></div></div>`)
     const drop = menu.querySelector('.drop')
     // permissions are stored as "<menu>/<item>" — the same label can exist in two menus
-    const allowed = (label) => Session.admin || ['تسجيل المنتج', 'عن البرنامج'].includes(label) || (Session.perms || []).includes(`${m.label}/${label}`)
+    const allowed = (label) => Session.admin || ['تسجيل المنتج', 'عن البرنامج', 'دليل الاستخدام', 'تسجيل خروج'].includes(label) || (Session.perms || []).includes(`${m.label}/${label}`)
     const items = m.items.filter((it) => it === '-' || allowed(it[0])).filter((it, i, a) => !(it === '-' && (i === 0 || a[i - 1] === '-' || i === a.length - 1)))
     if (!items.some((it) => it !== '-')) continue
     for (const it of items) {
@@ -125,17 +125,15 @@ async function openRegister() {
 }
 
 async function login() {
-  const years = await window.bridge.listDbs()
-  const thisYear = String(new Date().getFullYear())
-  if (!years.includes(thisYear)) years.push(thisYear)
-  years.sort().reverse()
+  const company = DB.one("SELECT value FROM meta WHERE key = 'company_name'")?.value || 'قاعدة البيانات الرئيسية'
+  const last = localStorage.getItem('mt-last-user') || 'أ'
   return UI.dialog({
     winbar: 'تسجيل الدخول | برنامج الحضور والانصراف',
     head: 'شاشة الدخول', width: 470,
     bodyHtml: `
       <div class="fields">
-        <label>قاعدة البيانات</label><select id="year">${years.map((y) => `<option>${y}</option>`).join('')}</select>
-        <label>اسم المستخدم</label><input type="text" id="user" value="أ">
+        <label>قاعدة البيانات</label><select id="year" disabled><option>${UI.esc(company)}</option></select>
+        <label>اسم المستخدم</label><input type="text" id="user" value="${UI.esc(last)}">
         <label>كلمة المرور</label><input type="password" id="pass">
         <label>الواجهة</label>
         <div class="lang"><label style="color:inherit;font-weight:normal"><input type="radio" name="lang" checked> عربي</label>
@@ -144,17 +142,24 @@ async function login() {
       <div class="avatar">${ICONS.avatar}</div>`,
     buttons: [
       { label: 'موافق', icon: 'ok', onClick: async (d) => {
-        const year = d.root.querySelector('#year').value
         const user = d.root.querySelector('#user').value.trim()
         const pass = d.root.querySelector('#pass').value
-        await DB.open(year)
         const u = DB.one('SELECT * FROM users WHERE username = ?', [user])
-        if (!u || !(await checkPassword(u.password, pass))) return d.error('اسم المستخدم أو كلمة المرور غير صحيحة')
-        if (!u.password?.startsWith('sha256$')) { DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(pass), u.id]); await DB.flush() }
+        if (!u || !(await checkPassword(u.password, pass))) {
+          DB.audit('محاولة دخول فاشلة', user)
+          return d.error('اسم المستخدم أو كلمة المرور غير صحيحة')
+        }
         Session.userId = u.id
         Session.username = u.username
         Session.admin = !!u.is_admin
         Session.perms = JSON.parse(u.permissions || '[]')
+        try { localStorage.setItem('mt-last-user', u.username) } catch {}
+        // an empty password (first start) must be changed before going on
+        if (!pass) {
+          d.root.style.display = 'none'
+          const ok = await forcePasswordChange(u)
+          if (!ok) { d.root.style.display = ''; return d.error('يجب تعيين كلمة مرور للمتابعة') }
+        } else if (!u.password?.startsWith('sha256$')) DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(pass), u.id])
         DB.audit('تسجيل دخول', u.username)
         await DB.flush()
         d.close(true)
@@ -164,8 +169,48 @@ async function login() {
   })
 }
 
+function forcePasswordChange(u) {
+  return UI.dialog({
+    head: 'تعيين كلمة مرور جديدة', width: 430,
+    bodyHtml: `<div style="font-size:12px;margin-bottom:8px">لحماية بياناتك، عيّن كلمة مرور للمستخدم «${UI.esc(u.username)}» قبل المتابعة.</div>
+      <div class="fields" style="grid-template-columns:110px 1fr"><label>كلمة المرور</label><input type="password" id="np1"><label>تأكيد</label><input type="password" id="np2"></div>`,
+    buttons: [
+      { label: 'حفظ', icon: 'save', onClick: async (d) => {
+        const a = d.root.querySelector('#np1').value, b = d.root.querySelector('#np2').value
+        if (a.length < 4) return d.error('كلمة المرور 4 أحرف على الأقل')
+        if (a !== b) return d.error('كلمتا المرور غير متطابقتين')
+        DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(a), u.id])
+        DB.audit('تعيين كلمة مرور', u.username)
+        await DB.flush()
+        d.close(true)
+      } },
+      { label: 'الغاء', icon: 'cancel', onClick: (d) => d.close(false) },
+    ],
+  })
+}
+
+async function logout() {
+  DB.audit('تسجيل خروج', Session.username)
+  await DB.flush()
+  location.reload()
+}
+
+async function restoreBackup() {
+  if (!Session.admin) return UI.message('استرجاع النسخ الاحتياطية لمدير النظام فقط')
+  const ok = await UI.dialog({ head: 'استرجاع نسخة احتياطية', width: 440,
+    bodyHtml: '<div>سيتم استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية المختارة. يُنصح بأخذ نسخة احتياطية من البيانات الحالية أولاً. متابعة؟</div>',
+    buttons: [{ label: 'نعم', icon: 'ok', onClick: (d) => d.close(true) }, { label: 'لا', icon: 'cancel', onClick: (d) => d.close(false) }] })
+  if (!ok) return
+  const bytes = await window.bridge.pickDb()
+  if (!bytes) return
+  if (!(await DB.restore(bytes))) return UI.message('الملف ليس نسخة احتياطية صالحة من البرنامج')
+  await UI.message('تم استرجاع النسخة الاحتياطية — سيتم إعادة تشغيل البرنامج')
+  window.bridge.relaunch()
+}
+
 ;(async function start() {
   await DB.init()
+  await DB.open()
   licence = await window.bridge.licenceStatus()
   setCaption()
   await login()

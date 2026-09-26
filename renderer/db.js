@@ -17,12 +17,72 @@ const DB = {
     this.sql = await initSqlJs({ wasmBinary: new Uint8Array(await window.bridge.sqlWasm()) })
   },
 
-  async open(year) {
-    const bytes = await window.bridge.loadDb(year)
-    this.db = bytes ? new this.sql.Database(new Uint8Array(bytes)) : new this.sql.Database()
-    this.year = year
+  // One database for all years. v0.x kept one file per year: on first start
+  // they are merged into the main file (newest year = master data; punches,
+  // leaves, permissions, posting and the audit trail from every year, matched
+  // to employees by code) and the old files are kept renamed.
+  async open() {
+    this.year = 'main'
+    const bytes = await window.bridge.loadDb('main')
+    if (bytes) {
+      this.db = new this.sql.Database(new Uint8Array(bytes))
+      this.migrate()
+      return
+    }
+    const years = (await window.bridge.listDbs()).sort()
+    const loadYear = async (y) => { const d = new this.sql.Database(new Uint8Array(await window.bridge.loadDb(y))); return d }
+    if (!years.length) {
+      this.db = new this.sql.Database()
+      this.migrate()
+      await this.flush()
+      return
+    }
+    this.db = await loadYear(years.at(-1))
     this.migrate()
-    if (!bytes) await this.flush()
+    for (const y of years.slice(0, -1)) {
+      const old = await loadYear(y)
+      this.mergeFrom(old)
+      old.close()
+    }
+    this.audit('دمج قواعد البيانات', `السنوات ${years.join('، ')}`)
+    await this.flush()
+    for (const y of years) await window.bridge.retireDb(y)
+  },
+
+  mergeFrom(old) {
+    const q = (sql, params = []) => { const st = old.prepare(sql); st.bind(params); const out = []; while (st.step()) out.push(st.getAsObject()); st.free(); return out }
+    const has = (t) => q("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [t]).length > 0
+    const codeToId = Object.fromEntries(this.all('SELECT id, code FROM employees').map((e) => [e.code, e.id]))
+    const oldIdToCode = has('employees') ? Object.fromEntries(q('SELECT id, code FROM employees').map((e) => [e.id, e.code])) : {}
+    const mapEmp = (oldId) => codeToId[oldIdToCode[oldId]]
+    this.run('BEGIN')
+    if (has('punches')) for (const r of q('SELECT emp_code, ts, source, device_id, created_at FROM punches'))
+      this.run('INSERT OR IGNORE INTO punches (emp_code, ts, source, device_id, created_at) VALUES (?,?,?,?,?)', [r.emp_code, r.ts, r.source, r.device_id, r.created_at])
+    if (has('leaves')) for (const r of q('SELECT * FROM leaves')) { const id = mapEmp(r.employee_id); if (id) this.run('INSERT INTO leaves (employee_id, type_id, from_date, to_date, notes) VALUES (?,?,?,?,?)', [id, r.type_id, r.from_date, r.to_date, r.notes]) }
+    if (has('permissions')) for (const r of q('SELECT * FROM permissions')) { const id = mapEmp(r.employee_id); if (id) this.run('INSERT INTO permissions (employee_id, type_id, date, from_time, to_time, notes) VALUES (?,?,?,?,?,?)', [id, r.type_id, r.date, r.from_time, r.to_time, r.notes]) }
+    if (has('holidays')) for (const r of q('SELECT * FROM holidays'))
+      if (!this.one('SELECT 1 FROM holidays WHERE from_date = ? AND to_date = ?', [r.from_date, r.to_date])) this.run('INSERT INTO holidays (name_ar, from_date, to_date) VALUES (?,?,?)', [r.name_ar, r.from_date, r.to_date])
+    if (has('ramadan_periods')) for (const r of q('SELECT * FROM ramadan_periods'))
+      if (!this.one('SELECT 1 FROM ramadan_periods WHERE from_date = ?', [r.from_date])) this.run('INSERT INTO ramadan_periods (from_date, to_date) VALUES (?,?)', [r.from_date, r.to_date])
+    if (has('posted_periods')) for (const r of q('SELECT * FROM posted_periods')) this.run('INSERT INTO posted_periods (from_date, to_date, posted_at) VALUES (?,?,?)', [r.from_date, r.to_date, r.posted_at])
+    if (has('posted_attendance')) for (const r of q('SELECT * FROM posted_attendance')) { const id = mapEmp(r.employee_id); if (id) this.run('INSERT OR IGNORE INTO posted_attendance (employee_id, date, data) VALUES (?,?,?)', [id, r.date, r.data]) }
+    if (has('audit_log')) for (const r of q('SELECT * FROM audit_log')) this.run('INSERT INTO audit_log (ts, username, action, target, details) VALUES (?,?,?,?,?)', [r.ts, r.username, r.action, r.target, r.details])
+    this.run('COMMIT')
+  },
+
+  // «استرجاع نسخة احتياطية»: validate the file, then replace the database
+  async restore(bytes) {
+    let test
+    try {
+      test = new this.sql.Database(new Uint8Array(bytes))
+      const t = test.exec("SELECT name FROM sqlite_master WHERE type = 'table'")[0]?.values.flat() || []
+      if (!['employees', 'punches', 'users'].every((x) => t.includes(x))) return false
+    } catch { return false } finally { test?.close() }
+    this.db = new this.sql.Database(new Uint8Array(bytes))
+    this.migrate()
+    this.audit('استرجاع نسخة احتياطية', '')
+    await this.flush()
+    return true
   },
 
   migrate() {

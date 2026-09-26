@@ -8,7 +8,7 @@ RequestExecutionLevel user
 
 !define APPNAME "Meena Time"
 !ifndef VERSION
-  !define VERSION "0.1.0"
+  !define VERSION "1.0.0"
 !endif
 !define SRC "..\dist\win-unpacked"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MeenaTime"
@@ -21,6 +21,8 @@ BrandingText "${APPNAME} ${VERSION}"
 
 !include "MUI2.nsh"
 !define MUI_ABORTWARNING
+!define MUI_ICON "..\build\icon.ico"
+!define MUI_UNICON "..\build\icon.ico"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APPNAME}.exe"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -43,16 +45,17 @@ Section "Install"
   nsExec::Exec 'taskkill /F /IM "${APPNAME}.exe"'
   SetOutPath "$INSTDIR"
   File /r "${SRC}\*.*"
+  File "/oname=$INSTDIR\app.ico" "..\build\icon.ico"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
-  CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${APPNAME}.exe"
+  CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${APPNAME}.exe" "" "$INSTDIR\app.ico"
   CreateShortcut "$SMPROGRAMS\${APPNAME}\إزالة ${APPNAME}.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${APPNAME}.exe"
+  CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${APPNAME}.exe" "" "$INSTDIR\app.ico"
   WriteRegStr HKCU "Software\${APPNAME}" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APPNAME}"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "Meena"
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${APPNAME}.exe"
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\app.ico"
   WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoRepair" 1

@@ -9,6 +9,9 @@ if (!window.bridge) {
       return r.ok ? new Uint8Array(await r.arrayBuffer()) : null
     },
     saveDb: (year, bytes) => fetch(`/api/db/${year}`, { method: 'PUT', body: bytes }).then((r) => r.json()),
+    retireDb: async () => true,
+    pickDb: async () => null,
+    relaunch: async () => location.reload(),
     licenceStatus: () => fetch('/api/licence').then((r) => r.json()),
     register: (code) => fetch('/api/register', { method: 'POST', body: code }).then((r) => r.json()),
     backup: async (year, bytes) => {

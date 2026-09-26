@@ -44,11 +44,15 @@ const closeWin = async (w) => { await btn(w, 'إغلاق').click(); await p.wait
 // ── 1. login ──────────────────────────────────────────────
 await p.waitForSelector('text=شاشة الدخول', { timeout: 20000 })
 await snap('login')
-check('login: year defaults to current year', (await p.locator('#year').inputValue()) === String(new Date().getFullYear()))
+check('login: single database shown', (await p.locator('#year option').count()) === 1)
 await p.locator('#pass').fill('bad'); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(300)
 check('login: wrong password rejected', /غير صحيحة/.test(await p.locator('.dlg .err').textContent()))
-await p.locator('#pass').fill(''); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(700)
-check('login: default admin «أ» with empty password', await p.locator('#home').isVisible())
+await p.locator('#pass').fill(''); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(400)
+check('first login: forced to set a password', /تعيين كلمة مرور جديدة/.test(await dlgText()))
+await p.locator('#np1').fill('ab'); await p.locator('#np2').fill('ab'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(150)
+check('first login: short password rejected', /4 أحرف/.test(await p.locator('.dlg-backdrop').last().locator('.err').textContent()))
+await p.locator('#np1').fill('start1'); await p.locator('#np2').fill('start1'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(700)
+check('login: default admin «أ» in after setting the password', await p.locator('#home').isVisible())
 await snap('home')
 check('home: 4 tiles', (await p.locator('.tile').count()) === 4)
 check('home: trial banner shown when unregistered', await p.locator('.trial').isVisible())
@@ -56,7 +60,7 @@ check('caption: Unregistered', /Unregistered/.test(await p.locator('#caption-tex
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 4], ['أدوات', 3], ['مساعدة', 1]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 4], ['أدوات', 5], ['مساعدة', 2]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)
@@ -331,7 +335,10 @@ await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p
 await menu('الإعدادات', 'اعدادات النظام'); check('system settings: shows data folder', (await p.locator('.dlg input').first().inputValue()).includes('mt-fulltest')); await snap('system'); await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
 await menu('أدوات', 'نسخة احتياطية'); check('backup: file written', /تم حفظ/.test(await okMsg()) && fs.existsSync(`${UD}/manual-backup.sqlite`))
 check('backup: automatic daily backup exists', fs.readdirSync(`${UD}/backups`).length >= 0)
-await menu('مساعدة', 'عن البرنامج'); check('about: version', /0\.2\.0/.test(await okMsg()))
+await menu('مساعدة', 'عن البرنامج'); check('about: version', /1\.0\.0/.test(await okMsg()))
+await menu('مساعدة', 'دليل الاستخدام'); w = win('دليل الاستخدام')
+check('guide: opens with all sections', (await w.locator('.guide section').count()) >= 10); await snap('guide')
+await w.locator('.guide nav a').last().click(); await p.waitForTimeout(300); await closeWin(w)
 
 await menu('أدوات', 'تسجيل المنتج'); await snap('register')
 const req = await p.locator('#req').inputValue()
@@ -521,6 +528,28 @@ await menu('أدوات', 'سجل الحركات'); w = win('سجل الحركا�
 check('audit log: records logins, posting, employee edits, permissions', /تسجيل دخول/.test(audit) && /ترحيل الحركات/.test(audit) && /تعديل موظف/.test(audit) && /تعديل صلاحيات/.test(audit))
 await snap('v2-audit'); await closeWin(w)
 
+// ── 8c. backup → change → restore ─────────────────────────
+await menu('أدوات', 'نسخة احتياطية'); await okMsg()
+fs.copyFileSync(`${UD}/manual-backup.sqlite`, `${UD}/restore-me.sqlite`)
+await menu('البيانات الأساسية', 'المشاريع'); w = win('المشاريع'); await lastRow(w).locator('[data-f=name_ar]').fill('مشروع مؤقت'); await btn(w, 'حفظ').click(); await p.waitForTimeout(250)
+check('restore: project added after the backup', (await rowCount(w)) === 2); await closeWin(w)
+await app.evaluate(({ dialog }, f) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }) }, `${UD}/restore-me.sqlite`)
+fs.writeFileSync(`${UD}/not-a-db.sqlite`, 'hello')
+await app.evaluate(({ dialog }, f) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }) }, `${UD}/not-a-db.sqlite`)
+await menu('أدوات', 'استرجاع نسخة احتياطية'); await yes(); await p.waitForTimeout(300)
+check('restore: a non-backup file is refused', /ليس نسخة احتياطية صالحة/.test(await okMsg()))
+await app.evaluate(({ dialog, app }, f) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }); app.relaunch = () => {}; app.exit = () => {} }, `${UD}/restore-me.sqlite`)
+await menu('أدوات', 'استرجاع نسخة احتياطية'); await yes(); await p.waitForTimeout(400)
+check('restore: backup restored', /تم استرجاع/.test(await okMsg()))
+await menu('البيانات الأساسية', 'المشاريع'); w = win('المشاريع')
+check('restore: data is back to the backup (temporary project gone)', (await rowCount(w)) === 1); await closeWin(w)
+// logout returns to the login screen
+await menu('أدوات', 'تسجيل خروج'); await p.waitForTimeout(800)
+check('logout: back to the login screen', await p.locator('text=شاشة الدخول').isVisible())
+await p.locator('#pass').fill('admin1'); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(600)
+check('logout: login again', await p.locator('#home').isVisible())
+await p.evaluate(() => { window.print = () => {} })
+
 // ── 9. restart: data persisted, password changed, licence kept ──
 await app.close()
 const app2 = await electron.launch({ executablePath: `${ROOT}/node_modules/electron/dist/electron`, args: ['.', '--no-sandbox', `--user-data-dir=${UD}`], cwd: ROOT })
@@ -537,7 +566,8 @@ check('permissions: home tile blocked without permission', /ليس لديك صل
 await app2.close()
 const app3 = await electron.launch({ executablePath: `${ROOT}/node_modules/electron/dist/electron`, args: ['.', '--no-sandbox', `--user-data-dir=${UD}`], cwd: ROOT })
 const p3 = await app3.firstWindow(); await p3.waitForSelector('text=شاشة الدخول')
-await p3.locator('#pass').fill('admin1'); await p3.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p3.waitForTimeout(700)
+check('login remembers the last user', (await p3.locator('#user').inputValue()) === 'hr')
+await p3.locator('#user').fill('أ'); await p3.locator('#pass').fill('admin1'); await p3.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p3.waitForTimeout(700)
 check('restart: login with new password', await p3.locator('#home').isVisible())
 check('restart: licence kept', /Registered/.test(await p3.locator('#caption-text').textContent()))
 await p3.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).click(); await p3.locator('.menu.open .drop button', { hasText: 'الموظفين' }).first().click(); await p3.waitForTimeout(300)

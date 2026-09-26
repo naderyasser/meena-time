@@ -6,7 +6,8 @@ const fs = require('fs')
 const { requestCode, verifyLicence } = require('./lib/license')
 
 const dataDir = () => app.getPath('userData')
-const dbPath = (year) => path.join(dataDir(), `meena-time-${year}.sqlite`)
+// one database for all years (v1.0); `name` = 'main', or a 4-digit year for a v0.x per-year file
+const dbPath = (name) => path.join(dataDir(), name === 'main' ? 'meena-time.sqlite' : `meena-time-${name}.sqlite`)
 const licencePath = () => path.join(dataDir(), 'licence.key')
 
 function createWindow() {
@@ -17,6 +18,7 @@ function createWindow() {
     minHeight: 640,
     title: 'Meena Time',
     backgroundColor: '#3fc1e9',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   })
   Menu.setApplicationMenu(null) // the app draws its own Arabic menu bar
@@ -30,6 +32,12 @@ ipcMain.handle('db:list', () =>
     ? fs.readdirSync(dataDir()).map((f) => f.match(/^meena-time-(\d{4})\.sqlite$/)?.[1]).filter(Boolean)
     : [])
 ipcMain.handle('db:load', (_e, year) => (fs.existsSync(dbPath(year)) ? fs.readFileSync(dbPath(year)) : null))
+// after merging v0.x per-year files into the main DB, keep them renamed (never deleted)
+ipcMain.handle('db:retire', (_e, year) => {
+  if (!/^\d{4}$/.test(year) || !fs.existsSync(dbPath(year))) return false
+  fs.renameSync(dbPath(year), dbPath(year) + '.v0-merged')
+  return true
+})
 ipcMain.handle('db:save', (_e, year, bytes) => {
   fs.mkdirSync(dataDir(), { recursive: true })
   const tmp = dbPath(year) + '.tmp'
@@ -77,7 +85,7 @@ function dailyBackup() {
     const dir = path.join(dataDir(), 'backups')
     fs.mkdirSync(dir, { recursive: true })
     const stamp = new Date().toISOString().slice(0, 10)
-    for (const f of fs.readdirSync(dataDir()).filter((f) => /^meena-time-\d{4}\.sqlite$/.test(f))) {
+    for (const f of fs.readdirSync(dataDir()).filter((f) => /^meena-time(-\d{4})?\.sqlite$/.test(f))) {
       const dest = path.join(dir, f.replace('.sqlite', `-${stamp}.sqlite`))
       if (!fs.existsSync(dest)) fs.copyFileSync(path.join(dataDir(), f), dest)
     }
@@ -88,12 +96,19 @@ function dailyBackup() {
   }
 }
 
+ipcMain.handle('db:pick', async (e) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), {
+    title: 'اختر ملف النسخة الاحتياطية', filters: [{ name: 'Meena Time DB', extensions: ['sqlite'] }], properties: ['openFile'],
+  })
+  return canceled || !filePaths[0] ? null : fs.readFileSync(filePaths[0])
+})
+ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0) })
 ipcMain.handle('paths', () => ({ data: dataDir(), backups: path.join(dataDir(), 'backups') }))
 ipcMain.handle('db:backup', async (e, year, bytes) => {
   const win = BrowserWindow.fromWebContents(e.sender)
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     title: 'حفظ نسخة احتياطية',
-    defaultPath: path.join(app.getPath('documents'), `meena-time-${year}-${new Date().toISOString().slice(0, 10)}.sqlite`),
+    defaultPath: path.join(app.getPath('documents'), `meena-time-backup-${new Date().toISOString().slice(0, 10)}.sqlite`),
     filters: [{ name: 'Meena Time DB', extensions: ['sqlite'] }],
   })
   if (canceled || !filePath) return { ok: false }

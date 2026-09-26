@@ -1,7 +1,7 @@
 {
   "name": "meena-time",
   "productName": "Meena Time",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "برنامج الحضور والانصراف — نسخة سطح المكتب",
   "main": "main.js",
   "scripts": {
@@ -29,10 +29,11 @@
       "preload.js",
       "lib/**",
       "renderer/**",
+      "build/icon.png",
+      "build/icon.ico",
       "package.json",
       "!tools/**",
-      "!preview-data/**",
-      "!**/*.pem.bak"
+      "!preview-data/**"
     ],
     "asarUnpack": [],
     "win": {

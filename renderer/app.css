@@ -212,3 +212,12 @@ body.pdf { background: #fff; overflow: visible; }
 .perm-grid legend { font-weight: bold; color: #0b3fa8; }
 .perm-grid .chk { display: flex; gap: 6px; align-items: center; padding: 1px 0; }
 .cnt { font: inherit; }
+
+/* ── user guide ─────────────────────────────────────────── */
+.guide { flex: 1; display: flex; min-height: 0; background: #fff; }
+.guide nav { width: 190px; flex: none; border-inline-end: 1px solid #d3d8dd; padding: 6px; overflow: auto; background: #f7f8f9; }
+.guide nav a { display: block; padding: 5px 8px; color: #0b3fa8; text-decoration: none; font-weight: bold; font-size: 12.5px; }
+.guide nav a:hover { background: #e3edf7; }
+.guide article { flex: 1; overflow: auto; padding: 8px 16px; line-height: 1.8; font-size: 13px; }
+.guide h3 { color: #0b3fa8; border-bottom: 1px solid #d3d8dd; padding-bottom: 3px; margin: 14px 0 6px; }
+.guide ol, .guide ul { padding-inline-start: 22px; margin: 4px 0; }

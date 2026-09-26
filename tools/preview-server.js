@@ -19,7 +19,7 @@ http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   const p = url.pathname
   if (p === '/api/dbs') return json(res, fs.readdirSync(DATA).map((f) => f.match(/^(\d{4})\.sqlite$/)?.[1]).filter(Boolean))
-  const m = p.match(/^\/api\/db\/(\d{4})$/)
+  const m = p.match(/^\/api\/db\/(\d{4}|main)$/)
   if (m) {
     const f = path.join(DATA, `${m[1]}.sqlite`)
     if (req.method === 'PUT') { fs.writeFileSync(f, await body(req)); return json(res, true) }

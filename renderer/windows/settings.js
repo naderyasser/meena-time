@@ -114,7 +114,7 @@ async function openSystemSettings() {
 }
 
 async function backupNow() {
-  const res = await window.bridge.backup(DB.year, DB.db.export())
+  const res = await window.bridge.backup('main', DB.db.export())
   UI.message(res?.ok ? `تم حفظ النسخة الاحتياطية:\n${res.path}` : res?.error || 'تم إلغاء النسخ الاحتياطي')
 }
 
@@ -141,7 +141,7 @@ function openPenaltyRules() {
 
 // Screens a non-admin user may be granted (menu item labels)
 const PERMISSION_ITEMS = () => MENUS.filter((m) => !['مساعدة'].includes(m.label))
-  .map((m) => [m.label, m.items.filter((it) => it !== '-').map(([l]) => l).filter((l) => !['اعدادات المستخدمين', 'تسجيل المنتج'].includes(l))])
+  .map((m) => [m.label, m.items.filter((it) => it !== '-').map(([l]) => l).filter((l) => !['اعدادات المستخدمين', 'تسجيل المنتج', 'تسجيل خروج', 'استرجاع نسخة احتياطية'].includes(l))])
 
 async function editPermissions(u) {
   const current = new Set(JSON.parse(u.permissions || '[]'))

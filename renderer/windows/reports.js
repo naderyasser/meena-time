@@ -162,7 +162,12 @@ function openReport(name) {
       const n = DB.one('SELECT n FROM print_counts WHERE report = ?', [name])?.n || 0
       filters.querySelector('.trial-note').textContent = `نسخة تجريبية — متبقي ${Math.max(0, 3 - n)} مرات طباعة`
     }
+    // long periods can take a few seconds: paint «جاري الحساب…» before computing
     function show() {
+      out.innerHTML = '<p class="empty">جاري الحساب…</p>'
+      return new Promise((done) => setTimeout(() => { compute(); done() }, 30))
+    }
+    function compute() {
       const v = (id) => filters.querySelector(id)?.value || ''
       const from = v('#r-from'), to = def.singleDay ? from : v('#r-to')
       if (!def.noPeriod && (!from || !to || from > to)) return UI.message('فترة غير صحيحة')
@@ -181,7 +186,7 @@ function openReport(name) {
     }
     // print / PDF / Excel all count as one «طباعة» against the trial allowance
     async function output(kind) {
-      if (!html) show()
+      if (!html) await show()
       if (!licence.ok) {
         const n = DB.one('SELECT n FROM print_counts WHERE report = ?', [name])?.n || 0
         if (n >= 3) return UI.message('انتهت مرات الطباعة المتاحة لهذا التقرير في النسخة التجريبية')
