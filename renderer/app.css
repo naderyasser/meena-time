@@ -1,0 +1,134 @@
+/* Visual language copied from Apex Time 2.6.4 (client video, 2026-09-24):
+   cyan desktop, Win-classic child windows with a blue caption, icon+label
+   toolbar buttons, grid with an amber sorted-column header. */
+:root {
+  --desk: #3fc1e9;
+  --caption-blue: #1f7fd6;
+  --caption-blue-2: #3a95e3;
+  --panel: #f3f3f3;
+  --border: #9aa7b3;
+  --grid-head: #e8e8e8;
+  --grid-sort: #f6be6a;
+  --text: #1b1b1b;
+  --link: #0b3fa8;
+  --ok: #2e9b3a;
+  --cancel: #d0231c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--desk);
+  font: 13px Tahoma, "Segoe UI", Arial, sans-serif;
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+}
+#caption {
+  height: 22px; background: #fbfbfb; border-bottom: 1px solid #d5d5d5;
+  direction: ltr; padding: 3px 8px; font-size: 12px; color: #444;
+}
+#taskstrip { position: absolute; top: 24px; left: 4px; display: flex; gap: 4px; direction: rtl; z-index: 5; }
+#taskstrip button {
+  font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #b9c3cc;
+  background: #eef2f5; cursor: pointer;
+}
+#taskstrip button.active { background: #fff; font-weight: bold; }
+
+/* ── menu bar ─────────────────────────────────────────────── */
+#menubar {
+  position: absolute; top: 24px; right: 4px; display: flex; gap: 2px; z-index: 20;
+}
+.menu { position: relative; }
+.menu > button {
+  font: inherit; background: transparent; border: 1px solid transparent; padding: 3px 8px;
+  display: flex; align-items: center; gap: 5px; cursor: pointer; color: #111; white-space: nowrap;
+}
+.menu > button svg { width: 18px; height: 18px; flex: none; }
+.menu > button:hover, .menu.open > button { background: #eaf6fd; border-color: #7fb7e3; }
+.menu .drop {
+  display: none; position: absolute; top: 100%; right: 0; min-width: 230px;
+  background: #f7f7f7; border: 1px solid #8f9aa5; box-shadow: 2px 3px 6px rgba(0,0,0,.25); padding: 2px;
+}
+.menu.open .drop { display: block; }
+.drop button {
+  width: 100%; font: inherit; text-align: right; background: transparent; border: 1px solid transparent;
+  padding: 5px 8px 5px 24px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.drop button:hover { background: #d9ecfb; border-color: #7fb7e3; }
+.drop hr { border: 0; border-top: 1px solid #cfd4d9; margin: 2px 4px; }
+.ico { width: 18px; height: 18px; flex: none; }
+
+/* ── home ─────────────────────────────────────────────────── */
+#home { position: absolute; inset: 60px 0 0 0; }
+#home .title {
+  position: absolute; right: 4%; top: 42%; font-size: 26px; color: var(--link);
+  text-decoration: underline; text-underline-offset: 6px; letter-spacing: 2px;
+}
+#home .trial {
+  position: absolute; right: 24%; top: 38%; font-size: 12px; font-weight: bold; color: #0d2a52; line-height: 1.45;
+}
+#home .trial .key { position: absolute; left: -70px; top: -6px; width: 56px; height: 56px; }
+#home .tiles { position: absolute; top: 58%; right: 16%; display: flex; gap: 22px; }
+.tile {
+  width: 106px; height: 112px; background: #fbfbfb; border: 1px solid #d9d9d9; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  font-size: 11px; font-weight: bold; color: #1a2f6b; box-shadow: 1px 1px 2px rgba(0,0,0,.15);
+}
+.tile:hover { outline: 2px solid #1f7fd6; }
+.tile svg { width: 64px; height: 64px; }
+
+/* ── child windows ────────────────────────────────────────── */
+.win {
+  position: absolute; background: var(--panel); border: 1px solid #7e8a96;
+  box-shadow: 3px 3px 10px rgba(0,0,0,.3); display: flex; flex-direction: column; min-width: 420px;
+}
+.win .cap {
+  height: 26px; background: linear-gradient(var(--caption-blue-2), var(--caption-blue)); color: #fff;
+  text-align: center; font-size: 14px; line-height: 26px; cursor: move; position: relative;
+}
+.win .cap .x { position: absolute; left: 4px; top: 3px; width: 20px; height: 18px; border: 0; background: #c9453d; color: #fff; cursor: pointer; line-height: 16px; }
+.toolbar { display: flex; gap: 2px; padding: 3px; background: #eef0f2; border-bottom: 1px solid #c4cad0; flex-wrap: nowrap; }
+.toolbar button {
+  font: inherit; font-size: 12px; font-weight: bold; color: #1b3d8f; display: flex; align-items: center; gap: 4px;
+  padding: 3px 6px; background: linear-gradient(#fff, #e9ecef); border: 1px solid #aeb7c0; border-radius: 2px; cursor: pointer; white-space: nowrap;
+}
+.toolbar button:hover { border-color: #3a8ee6; background: #eaf5ff; }
+.toolbar button:disabled { opacity: .45; cursor: default; }
+.toolbar button svg { width: 20px; height: 20px; }
+
+.grid-wrap { flex: 1; overflow: auto; background: #fff; margin: 4px; border: 1px solid #b7bfc7; }
+table.grid { border-collapse: collapse; width: 100%; font-size: 12px; }
+.grid th {
+  background: var(--grid-head); border: 1px solid #c6cbd0; padding: 3px 6px; font-weight: normal; position: sticky; top: 0;
+}
+.grid th.sorted { background: var(--grid-sort); }
+.grid td { border: 1px solid #e1e4e7; padding: 2px 6px; height: 22px; }
+.grid td.sel { width: 16px; background: #eceff2; border-color: #d0d5da; text-align: center; color: #d27d00; }
+.grid tr.current td { background: #fff4df; }
+.grid tr.current td.sel::before { content: '◂'; }
+.grid td input[type=text] { width: 100%; border: 0; background: transparent; font: inherit; padding: 0; }
+.grid td input[type=text]:focus { outline: 1px solid #3a8ee6; background: #fff; }
+.grid td.center { text-align: center; }
+.grid tr.new td { color: #777; }
+
+/* ── dialogs (login / register) ───────────────────────────── */
+.dlg-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.08); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.dlg { background: #fff; border: 1px solid #6e7a86; box-shadow: 4px 4px 14px rgba(0,0,0,.35); width: 440px; }
+.dlg .winbar { height: 22px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 11px; padding: 3px 8px; color: #333; }
+.dlg .head { background: linear-gradient(#3a95e3, #1f6fc4); color: #fff; text-align: center; font-size: 15px; padding: 4px; }
+.dlg .body { display: flex; gap: 12px; padding: 12px; direction: rtl; }
+.dlg .fields { flex: 1; display: grid; grid-template-columns: 90px 1fr; gap: 6px 8px; align-items: center; }
+.dlg label { color: #0b3fa8; font-weight: bold; font-size: 12px; }
+.dlg input[type=text], .dlg input[type=password], .dlg select {
+  font: inherit; padding: 2px 4px; border: 1px solid #a9b3bd; height: 22px; width: 100%;
+}
+.dlg .avatar { width: 110px; height: 110px; flex: none; }
+.dlg .btns { display: flex; gap: 8px; padding: 0 12px 12px; direction: rtl; }
+.dlg .btns button {
+  font: inherit; font-weight: bold; display: flex; align-items: center; gap: 6px; padding: 5px 12px;
+  background: linear-gradient(#fff, #e9ecef); border: 1px solid #aeb7c0; cursor: pointer; color: #1b3d8f;
+}
+.dlg .btns button svg { width: 20px; height: 20px; }
+.dlg .foot { height: 6px; background: #f08a24; }
+.dlg .err { color: #c0271f; font-size: 12px; padding: 0 12px 8px; min-height: 16px; }
+.lang { display: flex; gap: 16px; align-items: center; font-size: 12px; }
