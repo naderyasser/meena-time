@@ -1,5 +1,5 @@
-node_modules/
-dist/
 *.sqlite
+dist/
+node_modules/
 preview-data/
 tools/keys/private.pem

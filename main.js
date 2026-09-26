@@ -23,6 +23,8 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
 }
 
+// sql.js' .wasm is handed over as bytes: fetch() can't read file:// (or app.asar) URLs.
+ipcMain.handle('sql:wasm', () => fs.readFileSync(require.resolve('sql.js/dist/sql-wasm.wasm')))
 ipcMain.handle('db:list', () =>
   fs.existsSync(dataDir())
     ? fs.readdirSync(dataDir()).map((f) => f.match(/^meena-time-(\d{4})\.sqlite$/)?.[1]).filter(Boolean)

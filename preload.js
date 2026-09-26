@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('bridge', {
+  sqlWasm: () => ipcRenderer.invoke('sql:wasm'),
   listDbs: () => ipcRenderer.invoke('db:list'),
   loadDb: (year) => ipcRenderer.invoke('db:load', year),
   saveDb: (year, bytes) => ipcRenderer.invoke('db:save', year, bytes),

@@ -14,7 +14,7 @@ const DB = {
       s.onerror = fail
       document.head.appendChild(s)
     })
-    this.sql = await initSqlJs({ locateFile: (f) => base + f })
+    this.sql = await initSqlJs({ wasmBinary: new Uint8Array(await window.bridge.sqlWasm()) })
   },
 
   async open(year) {

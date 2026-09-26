@@ -2,6 +2,7 @@
 // the same calls go over HTTP to tools/preview-server.js.
 if (!window.bridge) {
   window.bridge = {
+    sqlWasm: () => fetch('/sql.js/sql-wasm.wasm').then((r) => r.arrayBuffer()),
     listDbs: () => fetch('/api/dbs').then((r) => r.json()),
     loadDb: async (year) => {
       const r = await fetch(`/api/db/${year}`)

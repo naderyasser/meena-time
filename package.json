@@ -13,6 +13,51 @@
     "sql.js": "^1.10.3"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "sa.meena.time",
+    "productName": "Meena Time",
+    "copyright": "Meena",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**",
+      "renderer/**",
+      "package.json",
+      "!tools/**",
+      "!preview-data/**",
+      "!**/*.pem.bak"
+    ],
+    "asarUnpack": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Meena Time",
+      "installerLanguages": [
+        "ar_SA",
+        "en_US"
+      ],
+      "language": "1025",
+      "artifactName": "Meena-Time-Setup-${version}.exe"
+    }
   }
 }
