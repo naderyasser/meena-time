@@ -92,7 +92,7 @@ function openReadPunches() {
 function openViewPunches() {
   UI.openWindow('view-punches', 'عرض الحركات', { width: 720, height: 440 }, (body, win) => {
     const bar = UI.toolbar([
-      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => UI.printGrid('عرض الحركات', body) },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
     const filters = UI.el(`<div class="filters">

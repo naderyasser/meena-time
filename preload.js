@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('bridge', {
   paths: () => ipcRenderer.invoke('paths'),
   saveFile: (name, bytes, ext) => ipcRenderer.invoke('file:save', name, bytes, ext),
   savePdf: (name, html) => ipcRenderer.invoke('file:pdf', name, html),
+  printHtml: (html) => ipcRenderer.invoke('print:html', html),
 })

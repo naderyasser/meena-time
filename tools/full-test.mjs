@@ -22,7 +22,9 @@ const errs = []
 p.on('pageerror', (e) => errs.push(e.message))
 p.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push(m.text()) })
 // native print / save dialogs can't be driven headless: stub them
-await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1 } })
+// printing goes through main (print:html → hidden window): record the documents instead
+await app.evaluate(({ ipcMain }) => { globalThis.__prints = []; ipcMain.removeHandler('print:html'); ipcMain.handle('print:html', (e, html) => { globalThis.__prints.push(html); return { ok: true } }) })
+const prints = () => app.evaluate(() => globalThis.__prints)
 await app.evaluate(({ dialog }, ud) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: ud + '/manual-backup.sqlite' }) }, UD)
 
 let shot = 0
@@ -51,6 +53,7 @@ await p.locator('#pass').fill(''); await p.locator('.dlg').getByRole('button', {
 check('first login: forced to set a password', /تعيين كلمة مرور جديدة/.test(await dlgText()))
 await p.locator('#np1').fill('ab'); await p.locator('#np2').fill('ab'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(150)
 check('first login: short password rejected', /4 أحرف/.test(await p.locator('.dlg-backdrop').last().locator('.err').textContent()))
+await snap('force-password')
 await p.locator('#np1').fill('start1'); await p.locator('#np2').fill('start1'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(700)
 check('login: default admin «أ» in after setting the password', await p.locator('#home').isVisible())
 await snap('home')
@@ -117,6 +120,29 @@ async function gridCrud(title, menuItem, fill, { required = 'مطلوب' } = {})
 let w = await gridCrud('قوائم البرنامج', 'قوائم البرنامج', [
   { list_type: 'الوظائف', name_ar: 'ممرض' }, { list_type: 'الوظائف', name_ar: 'محاسب' }, { list_type: 'الجنسيات', name_ar: 'سعودي' },
   { list_type: 'أنواع الإجازات', name_ar: 'سنوية' }, { list_type: 'أنواع الأذونات', name_ar: 'إذن شخصي' }])
+// drop-down opens with a real mouse click (own list, not the native popup) and picks a value
+{
+  const sel = lastRow(w).locator('select').first()
+  await sel.click(); await p.waitForTimeout(150)
+  check('select: drop-down list opens on click', await p.locator('.sel-pop').isVisible())
+  await snap('select-open')
+  await p.locator('.sel-pop .sel-opt', { hasText: 'الجنسيات' }).click(); await p.waitForTimeout(100)
+  check('select: picked value is set', (await sel.evaluate((e) => e.options[e.selectedIndex].text)) === 'الجنسيات')
+  check('select: list closes after picking', !(await p.locator('.sel-pop').count()))
+  await sel.click(); await p.keyboard.press('Escape'); await p.waitForTimeout(100)
+  check('select: Escape closes the list', !(await p.locator('.sel-pop').count()))
+  await btn(w, 'إهمال').click(); await p.waitForTimeout(150)
+}
+// «طباعة» prints the list itself as a report (letterhead + table), not the screen
+{
+  const before = (await prints()).length
+  await btn(w, 'طباعة').click(); await p.waitForTimeout(400)
+  const doc = (await prints())[before] || ''
+  check('grid print: sends a document', !!doc)
+  fs.writeFileSync(`${SHOTS}/grid-print.html`, doc)
+  check('grid print: letterhead + title + rows as text', doc.includes('rep-head') && doc.includes('قوائم البرنامج') && doc.includes('ممرض') && doc.includes('الوظائف'))
+  check('grid print: no form controls in the printout', !/<(select|input)\b/.test(doc.split('<body')[1] || ''))
+}
 await closeWin(w)
 w = await gridCrud('الإدارات والأقسام', 'الإدارات والأقسام', [{ name_ar: 'الإدارة الطبية' }, { name_ar: 'قسم الطوارئ', parent_id: 1 }])
 // department with a section can't be deleted
@@ -292,7 +318,7 @@ for (const r of reports) {
   // print counter: 3 prints then blocked
   if (r === 'حالة اليوم') {
     for (let i = 0; i < 3; i++) { await btn(rw, 'طباعة').click(); await p.waitForTimeout(150) }
-    check('trial: 3 prints allowed', (await p.evaluate(() => window.__printed)) >= 3)
+    check('trial: 3 prints allowed', (await prints()).filter((h) => h.includes('حالة اليوم')).length >= 3)
     await btn(rw, 'طباعة').click(); await p.waitForTimeout(150)
     check('trial: 4th print blocked', /انتهت مرات الطباعة/.test(await okMsg()))
   }
@@ -548,7 +574,6 @@ await menu('أدوات', 'تسجيل خروج'); await p.waitForTimeout(800)
 check('logout: back to the login screen', await p.locator('text=شاشة الدخول').isVisible())
 await p.locator('#pass').fill('admin1'); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(600)
 check('logout: login again', await p.locator('#home').isVisible())
-await p.evaluate(() => { window.print = () => {} })
 
 // ── 9. restart: data persisted, password changed, licence kept ──
 await app.close()

@@ -172,8 +172,8 @@ async function login() {
 function forcePasswordChange(u) {
   return UI.dialog({
     head: 'تعيين كلمة مرور جديدة', width: 430,
-    bodyHtml: `<div style="font-size:12px;margin-bottom:8px">لحماية بياناتك، عيّن كلمة مرور للمستخدم «${UI.esc(u.username)}» قبل المتابعة.</div>
-      <div class="fields" style="grid-template-columns:110px 1fr"><label>كلمة المرور</label><input type="password" id="np1"><label>تأكيد</label><input type="password" id="np2"></div>`,
+    bodyHtml: `<div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="font-size:12px">لحماية بياناتك، عيّن كلمة مرور للمستخدم «${UI.esc(u.username)}» قبل المتابعة.</div>
+      <div class="fields" style="grid-template-columns:110px 1fr"><label>كلمة المرور</label><input type="password" id="np1"><label>تأكيد</label><input type="password" id="np2"></div></div>`,
     buttons: [
       { label: 'حفظ', icon: 'save', onClick: async (d) => {
         const a = d.root.querySelector('#np1').value, b = d.root.querySelector('#np2').value

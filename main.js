@@ -146,5 +146,18 @@ ipcMain.handle('file:pdf', async (e, name, html) => {
   }
 })
 
+// Print through a hidden window so only the document prints (not the desktop),
+// and a missing/failed printer comes back as a message instead of nothing happening
+ipcMain.handle('print:html', async (e, html) => {
+  const w = new BrowserWindow({ show: false, webPreferences: { javascript: false } })
+  try {
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    return await new Promise((resolve) => w.webContents.print({ printBackground: true }, (ok, reason) =>
+      resolve(ok || /cancel/i.test(reason || '') ? { ok } : { ok: false, error: `تعذّرت الطباعة (${reason || 'لا توجد طابعة'}) — يمكنك الحفظ PDF بدلاً منها` })))
+  } finally {
+    w.destroy()
+  }
+})
+
 app.whenReady().then(() => { dailyBackup(); createWindow() })
 app.on('window-all-closed', () => app.quit())

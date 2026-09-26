@@ -28,6 +28,7 @@ if (!window.bridge) {
       a.click()
       return { ok: true, path: name }
     },
+    printHtml: null, // preview: UI.print falls back to window.print
     savePdf: async () => ({ ok: false, error: 'حفظ PDF يعمل في البرنامج المثبّت فقط' }),
     paths: async () => ({ data: '(preview) preview-data/', backups: '(preview) —' }),
     readDevice: async () => ({ ok: false, error: 'القراءة من الجهاز تعمل في البرنامج المثبّت فقط (غير متاحة في المعاينة)' }),

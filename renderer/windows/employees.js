@@ -13,7 +13,7 @@ function openEmployees() {
       { key: 'new', label: 'جديد', icon: 'new', onClick: () => openEmployeeForm(null, load) },
       { key: 'edit', label: 'تعديل', icon: 'undo', onClick: () => (current ? openEmployeeForm(current, load) : UI.message('اختر موظفاً')) },
       { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
-      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => UI.printGrid('الموظفين', body) },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
     const search = UI.el('<input type="text" placeholder="بحث بالكود أو الاسم" style="margin-inline-start:auto;width:220px;font:inherit;padding:3px 6px;border:1px solid #aeb7c0">')

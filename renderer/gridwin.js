@@ -45,7 +45,7 @@ function openGridWindow(cfg) {
         { key: 'undo', label: 'إهمال', icon: 'undo', onClick: load },
       ]),
       { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
-      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => UI.printGrid(cfg.title, wrap) },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: async () => { if (!dirty || (await confirmDiscard())) win.close() } },
     ])
     const head = cols.map((c, i) => `<th ${i === 0 ? 'class="sorted"' : ''} style="${c.width ? `width:${c.width}px` : ''}">${UI.esc(c.label)}</th>`).join('')

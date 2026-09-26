@@ -173,13 +173,8 @@ function openReport(name) {
       if (!def.noPeriod && (!from || !to || from > to)) return UI.message('فترة غير صحيحة')
       const f = { from, to, departmentId: +v('#r-dep') || null, employeeIds: v('#r-emp') ? [+v('#r-emp')] : null }
       const res = def.build(f)
-      const m = (k) => DB.one('SELECT value FROM meta WHERE key = ?', [k])?.value || ''
       const period = def.noPeriod ? '' : def.singleDay ? `التاريخ: ${from}` : `من ${from} إلى ${to}`
-      const now = new Date()
-      // Apex-style letterhead: company (right) · report title (centre) · print date/user (left)
-      html = `<div class="rep-head"><div class="lh-r"><div class="co">${UI.esc(m('company_name'))}</div><div>${UI.esc(m('company_address'))}</div><div dir="ltr">${UI.esc(m('company_phone'))}</div></div>
-        <div class="lh-c"><h2>${UI.esc(name)}</h2><div class="per">${period}</div></div>
-        <div class="lh-l"><div class="co-en" dir="ltr">${UI.esc(m('company_name_en'))}</div><div>تاريخ الطباعة: ${Engine.iso(now)} ${Engine.hm(now.getHours() * 60 + now.getMinutes())}</div><div>المستخدم: ${UI.esc(Session.username)}</div></div></div>` +
+      html = UI.letterhead(name, period) +
         (res.grouped ? res.groups.map((g) => `<div class="rep-group">${UI.esc(g.title)}</div>${table(res.head, g.rows, g.foot)}`).join('') || '<p class="empty">لا توجد بيانات</p>'
           : table(res.head, res.rows))
       out.innerHTML = html
@@ -210,18 +205,12 @@ function openReport(name) {
         return
       }
       if (kind === 'pdf') {
-        const css = [...document.styleSheets].map((ss) => { try { return [...ss.cssRules].map((r) => r.cssText).join('\n') } catch { return '' } }).join('\n')
-        const res = await window.bridge.savePdf(`${file}.pdf`, `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${css}</style></head>
-          <body class="printing pdf"><div id="print-area" style="display:block">${html}</div></body></html>`)
+        const res = await window.bridge.savePdf(`${file}.pdf`, UI.docHtml(html))
         if (res?.ok) UI.message(`تم الحفظ: ${res.path}`)
         else if (res?.error) UI.message(res.error)
         return
       }
-      const area = document.getElementById('print-area')
-      area.innerHTML = html
-      document.body.classList.add('printing')
-      window.print()
-      document.body.classList.remove('printing')
+      await UI.print(html)
     }
     note()
     show()

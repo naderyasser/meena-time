@@ -171,7 +171,7 @@ document.addEventListener('change', (e) => {
 function openAuditLog() {
   UI.openWindow('audit', 'سجل الحركات', { width: 900, height: 460 }, (body, win) => {
     const bar = UI.toolbar([
-      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => window.print() },
+      { key: 'print', label: 'طباعة', icon: 'print', onClick: () => UI.printGrid('سجل الحركات', body) },
       { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
     ])
     const users = DB.all('SELECT DISTINCT username FROM audit_log ORDER BY username').map((r) => r.username)

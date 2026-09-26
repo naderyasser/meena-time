@@ -221,3 +221,10 @@ body.pdf { background: #fff; overflow: visible; }
 .guide article { flex: 1; overflow: auto; padding: 8px 16px; line-height: 1.8; font-size: 13px; }
 .guide h3 { color: #0b3fa8; border-bottom: 1px solid #d3d8dd; padding-bottom: 3px; margin: 14px 0 6px; }
 .guide ol, .guide ul { padding-inline-start: 22px; margin: 4px 0; }
+
+/* drop-down list used for every <select> (see UI.openSelect) */
+.sel-pop { position: fixed; z-index: 200000; background: #fff; border: 1px solid #6e7a86; box-shadow: 2px 3px 8px rgba(0,0,0,.3); overflow-y: auto; direction: rtl; font: 13px Tahoma, "Segoe UI", Arial, sans-serif; }
+.sel-pop .sel-opt { padding: 3px 8px; white-space: nowrap; cursor: default; min-height: 18px; }
+.sel-pop .sel-opt:hover { background: #3a8ee6; color: #fff; }
+.sel-pop .sel-opt.on { background: #fff4df; }
+.sel-pop .sel-opt.on:hover { background: #3a8ee6; }

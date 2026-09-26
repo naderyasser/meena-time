@@ -100,8 +100,97 @@ const UI = {
     })
   },
 
+  // Apex-style letterhead: company (right) · title (centre) · print date/user (left)
+  letterhead(title, sub = '') {
+    const m = (k) => DB.one('SELECT value FROM meta WHERE key = ?', [k])?.value || ''
+    const now = new Date()
+    return `<div class="rep-head"><div class="lh-r"><div class="co">${this.esc(m('company_name'))}</div><div>${this.esc(m('company_address'))}</div><div dir="ltr">${this.esc(m('company_phone'))}</div></div>
+      <div class="lh-c"><h2>${this.esc(title)}</h2><div class="per">${sub}</div></div>
+      <div class="lh-l"><div class="co-en" dir="ltr">${this.esc(m('company_name_en'))}</div><div>تاريخ الطباعة: ${Engine.iso(now)} ${Engine.hm(now.getHours() * 60 + now.getMinutes())}</div><div>المستخدم: ${this.esc(Session.username)}</div></div></div>`
+  },
+  // standalone document (app CSS inlined) for printing / PDF
+  docHtml(inner) {
+    const css = [...document.styleSheets].map((ss) => { try { return [...ss.cssRules].map((r) => r.cssText).join('\n') } catch { return '' } }).join('\n')
+    return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${css}</style></head>
+      <body class="printing pdf"><div id="print-area" style="display:block">${inner}</div></body></html>`
+  },
+  async print(inner) {
+    if (window.bridge.printHtml) {
+      const res = await window.bridge.printHtml(this.docHtml(inner))
+      if (res?.error) this.message(res.error)
+      return
+    }
+    const area = document.getElementById('print-area')
+    area.innerHTML = inner
+    document.body.classList.add('printing')
+    window.print()
+    document.body.classList.remove('printing')
+  },
+
+  // Print what a list window shows: its grid as a report table under the letterhead
+  printGrid(title, root) {
+    const t = root.querySelector('table.grid')?.cloneNode(true)
+    if (!t) return
+    t.className = 'rep'
+    t.querySelectorAll('tr.new').forEach((tr) => tr.remove()) // the blank entry row
+    t.querySelectorAll('select').forEach((x) => x.replaceWith(x.selectedIndex > 0 ? x.options[x.selectedIndex].text : ''))
+    t.querySelectorAll('input[type=checkbox]').forEach((x) => x.replaceWith(x.checked ? '✓' : ''))
+    t.querySelectorAll('input').forEach((x) => x.replaceWith(x.value))
+    // drop the row-pointer column (empty header)
+    const first = t.querySelector('thead th')
+    if (first && !first.textContent.trim()) t.querySelectorAll('tr').forEach((tr) => tr.firstElementChild?.remove())
+    if (!t.querySelector('tbody tr')) return this.message('لا توجد بيانات للطباعة')
+    return this.print(this.letterhead(title) + t.outerHTML)
+  },
+
+  // Our own drop-down list for <select>: the native popup doesn't open reliably
+  // inside the MDI windows on Windows. The <select> keeps its value and fires
+  // the usual input/change events; keyboard (arrows) still works natively.
+  openSelect(sel) {
+    this.closeSelect()
+    const r = sel.getBoundingClientRect()
+    const list = this.el('<div class="sel-pop" role="listbox"></div>')
+    ;[...sel.options].forEach((o, i) => {
+      const it = this.el(`<div class="sel-opt${i === sel.selectedIndex ? ' on' : ''}" role="option">${this.esc(o.text) || '&nbsp;'}</div>`)
+      it.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        this.closeSelect()
+        if (sel.selectedIndex !== i) {
+          sel.selectedIndex = i
+          sel.dispatchEvent(new Event('input', { bubbles: true }))
+          sel.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+        sel.focus()
+      })
+      list.appendChild(it)
+    })
+    document.body.appendChild(list)
+    const h = Math.min(list.scrollHeight, 240)
+    const below = innerHeight - r.bottom > h + 4
+    Object.assign(list.style, { left: r.left + 'px', minWidth: r.width + 'px', top: (below ? r.bottom : r.top - h) + 'px', maxHeight: '240px' })
+    list.querySelector('.on')?.scrollIntoView({ block: 'nearest' })
+    this.selPop = list
+  },
+  closeSelect() {
+    this.selPop?.remove()
+    this.selPop = null
+  },
+
   message(text) {
     return this.dialog({ head: 'تنبيه', bodyHtml: `<div style="padding:4px 2px">${this.esc(text)}</div>`, width: 360,
       buttons: [{ label: 'موافق', icon: 'ok', onClick: (d) => d.close(true) }] })
   },
 }
+
+document.addEventListener('mousedown', (e) => {
+  const sel = e.target.closest?.('select')
+  if (sel && !sel.multiple && !sel.disabled && sel.size <= 1) {
+    e.preventDefault() // no native popup
+    sel.focus()
+    if (UI.selPop) UI.closeSelect()
+    else UI.openSelect(sel)
+  } else if (!e.target.closest?.('.sel-pop')) UI.closeSelect()
+}, true)
+addEventListener('keydown', (e) => { if (e.key === 'Escape') UI.closeSelect() })
+addEventListener('blur', () => UI.closeSelect())
+addEventListener('scroll', (e) => { if (e.target !== UI.selPop) UI.closeSelect() }, true)
