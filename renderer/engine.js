@@ -154,7 +154,7 @@ const Engine = {
           r = { ...base, kind: 'off', status: 'عطلة إسبوعية', in: own[0] ?? null, out: own.length > 1 ? own.at(-1) : null }
           if (own.length && e.ot_holidays) { r.in = own[0]; r.out = own.at(-1); r.worked = r.ot = Math.max(0, r.out - r.in) }
         } else if (sch.kind === 'open') r = this.evalOpen(base, sch.open, all, e, date, today)
-        else if (cfg.groups[gid]?.plain_rule) r = this.evalPlain({ ...base, punches: byDate[date] || [] }, sch.windows[0], date, today)
+        else if (cfg.groups[gid]?.plain_rule) r = this.evalPlain({ ...base, punches: byDate[date] || [] }, sch.windows[0], date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
         else r = this.evalWindows(base, sch.windows, all, e, date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
         consumedUntil = -Infinity
         if (sch.kind === 'windows' && !cfg.groups[gid]?.plain_rule && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
@@ -169,12 +169,15 @@ const Engine = {
   // the site's rule for a shift with only a start and an end (no per-day windows):
   // first punch = in, last punch = out, grace minutes are deducted from lateness / early leave
   // (the day's own punches by date; an end not after the start = overnight)
-  evalPlain(base, w, date, today) {
+  // an approved permission (إذن) excuses the lateness / early leave it covers, as on the site
+  evalPlain(base, w, date, today, perms = []) {
     const ps = [...base.punches].sort((a, b) => a - b)
     const start = w.check_in % 1440, end = w.check_out % 1440 > start ? w.check_out % 1440 : (w.check_out % 1440) + 1440
     const first = ps.length ? ps[0] : null, last = ps.length > 1 ? ps.at(-1) : null
-    const late = first != null ? Math.max(0, first - (start + (w.late_min || 0))) : 0
-    const early = last != null ? Math.max(0, end - (w.early_min || 0) - last) : 0
+    const spans = perms.map((p) => { const a = this.toMin(p.from_time), b = this.toMin(p.to_time); return [a, b > a ? b : b + 1440] })
+    const covered = (lo, hi) => (hi > lo ? spans.reduce((s, [a, b]) => s + Math.max(0, Math.min(hi, b) - Math.max(lo, a)), 0) : 0)
+    const late = first != null ? Math.max(0, first - (start + (w.late_min || 0)) - covered(start, first)) : 0
+    const early = last != null ? Math.max(0, end - (w.early_min || 0) - last - covered(last, end)) : 0
     const r = { ...base, in: first, out: last, late, early, ot: last != null ? Math.max(0, last - end) : 0, worked: first != null && last > first ? last - first : 0, missingOut: ps.length === 1,
       windows: [{ in: first, out: last, late, early }] }
     if (first == null) return { ...r, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }
