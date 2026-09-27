@@ -84,7 +84,11 @@ const WebSync = {
   },
 
   async fetchAll() {
+    // punches: first time the last 120 days, then everything created on the site since the
+    // last pull (by the site's own clock) — so late / back-dated punches are caught too
+    const cursor = this.meta('web_checkins_cursor')
     const since = this.meta('web_checkins_since') || Engine.addDays(Engine.today(), -120)
+    const ckFilter = cursor ? [['creation', '>=', cursor]] : [['time', '>=', `${since} 00:00:00`]]
     const [departments, designations, leaveTypes, projects, egroups, holidayLists, shiftTypes, employees, assignments, leaves, perms, checkins] = await Promise.all([
       this.get('Department', ['name', 'department_name', 'parent_department', 'is_group']),
       this.get('Designation', ['name']),
@@ -98,7 +102,7 @@ const WebSync = {
       this.get('Shift Assignment', ['name', 'employee', 'shift_type', 'start_date', 'end_date'], [['docstatus', '=', 1], ['status', '=', 'Active']]),
       this.get('Leave Application', ['name', 'employee', 'leave_type', 'from_date', 'to_date', 'description'], [['docstatus', '=', 1], ['status', '=', 'Approved']]),
       this.get('Permission Request', ['name', 'employee', 'permission_date', 'from_time', 'to_time', 'reason'], [['docstatus', '=', 1], ['status', '=', 'Approved']]).catch(() => []),
-      this.get('Employee Checkin', ['name', 'employee', 'time'], [['time', '>=', `${since} 00:00:00`]]),
+      this.get('Employee Checkin', ['name', 'employee', 'time', 'creation'], ckFilter),
     ])
     // child tables need the full documents
     const withWindows = await Promise.all(shiftTypes.filter((s) => s.custom_shift_kind !== 'Rotational').map((s) => this.doc('Shift Type', s.name).then((d) => ({ ...s, windows: d.custom_day_windows || [] }))))
@@ -327,8 +331,9 @@ const WebSync = {
       DB.run("INSERT INTO punches (emp_code, ts, source, web_id) VALUES (?, ?, 'web', ?)", [code, ts, c.name])
       punches++
     }
-    // next time only fetch the last few days (late edits on the site are still caught)
-    this.setMeta('web_checkins_since', Engine.addDays(Engine.today(), -7))
+    // next time only fetch punches created after the newest one seen (>=: same-second ones are skipped above)
+    const newest = d.checkins.reduce((m, c) => (String(c.creation || '') > m ? String(c.creation) : m), this.meta('web_checkins_cursor'))
+    if (newest) this.setMeta('web_checkins_cursor', newest)
     DB.run('COMMIT')
     return { employees: d.employees.length, groups: d.shiftTypes.length, punches }
   },

@@ -92,11 +92,14 @@ check('second sync: idempotent', r2.punches === 0 && mock.posted.length === befo
 mock.db.Department.push({ name: 'الجودة - T', department_name: 'الجودة', parent_department: 'All Departments', is_group: 0 })
 mock.db.Designation.splice(1, 1)
 mock.db.Employee[1].employee_name = 'اسم معدّل'
-mock.db['Employee Checkin'].push({ name: 'CHK-9', employee: 'HR-EMP-00002', time: '2026-09-22 09:02:00' })
+mock.db['Employee Checkin'].push({ name: 'CHK-9', employee: 'HR-EMP-00002', time: '2026-09-22 09:02:00', creation: '2099-01-01 00:00:00' })
+// back-dated on the site (months old, created now) must still come down
+mock.db['Employee Checkin'].push({ name: 'CHK-10', employee: 'HR-EMP-00002', time: '2026-01-05 08:00:00', creation: '2099-01-01 00:00:01' })
 await p.evaluate(() => WebSync.sync({ quiet: true }))
 check('site changes: new department, removed job, renamed employee, new punch', (await n("SELECT COUNT(*) n FROM departments WHERE name_ar = 'الجودة'")) === 1 &&
   (await n("SELECT COUNT(*) n FROM lists WHERE list_type = 'job'")) === 1 && (await n("SELECT COUNT(*) n FROM employees WHERE name_ar = 'اسم معدّل'")) === 1 &&
   (await n("SELECT COUNT(*) n FROM punches WHERE emp_code = '1002' AND ts = '2026-09-22 09:02:00'")) === 1)
+check('site punch back-dated months ago still pulled (creation cursor)', (await n("SELECT COUNT(*) n FROM punches WHERE emp_code = '1002' AND ts = '2026-01-05 08:00:00' AND web_id = 'CHK-10'")) === 1)
 mock.db.Employee.splice(2, 1)
 await p.evaluate(() => WebSync.sync({ quiet: true }))
 check('employee removed on the site → «منتهي» here', (await q("SELECT status FROM employees WHERE code = 'HR-EMP-00003'"))[0].status === 'منتهي')
