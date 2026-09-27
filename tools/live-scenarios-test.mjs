@@ -12,7 +12,14 @@ const ROOT = '/root/meena-time'
 const C = JSON.parse(fs.readFileSync(process.argv[2] || '/root/meena-time-keys-backup/tamken3-api.json'))
 const H = { Authorization: `token ${C.key}:${C.secret}`, Accept: 'application/json', 'Content-Type': 'application/json' }
 const api = async (method, path, body) => {
-  const r = await fetch(C.url + path, { method, headers: H, body: body && JSON.stringify(body) })
+  // the site may be restarting (deploys): retry connection errors / 502-504 for up to ~40 s
+  let r
+  for (let i = 0; ; i++) {
+    r = await fetch(C.url + path, { method, headers: H, body: body && JSON.stringify(body) }).catch(() => null)
+    if ((r && ![502, 503, 504].includes(r.status)) || i === 12) break
+    await new Promise((s) => setTimeout(s, 3000))
+  }
+  if (!r) throw new Error(`${method} ${path.split('?')[0]} → site unreachable`)
   const j = await r.json().catch(() => ({}))
   if (!r.ok) { let m = j.exc_type || ''; try { m += ' ' + JSON.parse(JSON.parse(j._server_messages)[0]).message } catch {} throw new Error(`${method} ${path.split('?')[0]} → ${r.status} ${m}`) }
   return j.data ?? j.message
@@ -74,7 +81,11 @@ let target, code
 try {
   const emps = await list('Employee', ['name', 'attendance_device_id', 'status'])
   target = emps.find((e) => e.status === 'Active'); code = String(target.attendance_device_id || target.name).trim()
-  if ((await siteCks()).length) throw new Error(`site already has punches on ${TEST_DAY} for the test employee — pick another day`)
+  // leftovers of an interrupted earlier run (our own device tag only)
+  const old = await list('Employee Checkin', ['name', 'device_id'], [['employee', '=', target.name], ['time', 'between', [`${TEST_DAY} 00:00:00`, `${TEST_DAY} 23:59:59`]]])
+  if (old.some((c) => c.device_id !== 'Meena Time')) throw new Error(`site has real punches on ${TEST_DAY} for the test employee — pick another day`)
+  for (const c of old) await api('DELETE', res('Employee Checkin', c.name))
+  if (old.length) console.log(`removed ${old.length} leftovers of an earlier run`)
 
   const A = await openApp('/tmp/mt-scn-a')
   check('A: first sync through the relay', !!(await sync(A)).r)
@@ -193,8 +204,8 @@ try {
   const left = target ? (await siteCks().catch(() => [])).map((c) => ['Employee Checkin', c.name]) : []
   const all = [...new Map([...created, ...left].map((x) => [x[1], x])).values()].reverse()
   let removed = 0
-  for (let i = 0; i < all.length; i += 10) {
-    await Promise.all(all.slice(i, i + 10).map(async ([dt, n]) => {
+  for (let i = 0; i < all.length; i += 3) {
+    await Promise.all(all.slice(i, i + 3).map(async ([dt, n]) => {
       try { await api('DELETE', res(dt, n)); removed++ } catch (e) { if (!/404/.test(e.message)) console.log(`cleanup: COULD NOT REMOVE ${dt} ${n} (${e.message})`) }
     }))
   }

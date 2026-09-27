@@ -12,7 +12,14 @@ const ROOT = '/root/meena-time', UD = '/tmp/mt-livetest'
 const C = JSON.parse(fs.readFileSync(process.argv[2] || '/root/meena-time-keys-backup/tamken3-api.json'))
 const H = { Authorization: `token ${C.key}:${C.secret}`, Accept: 'application/json', 'Content-Type': 'application/json' }
 const api = async (method, path, body) => {
-  const r = await fetch(C.url + path, { method, headers: H, body: body && JSON.stringify(body) })
+  // the site may be restarting (deploys): retry connection errors / 502-504 for up to ~40 s
+  let r
+  for (let i = 0; ; i++) {
+    r = await fetch(C.url + path, { method, headers: H, body: body && JSON.stringify(body) }).catch(() => null)
+    if ((r && ![502, 503, 504].includes(r.status)) || i === 12) break
+    await new Promise((s) => setTimeout(s, 3000))
+  }
+  if (!r) throw new Error(`${method} ${path.split('?')[0]} → site unreachable`)
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(`${method} ${path.split('?')[0]} → ${r.status} ${j.exc_type || ''}`)
   return j.data ?? j.message

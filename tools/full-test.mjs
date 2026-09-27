@@ -571,8 +571,8 @@ check('restore: backup restored', /تم استرجاع/.test(await okMsg()))
 await menu('البيانات الأساسية', 'المشاريع'); w = win('المشاريع')
 check('restore: data is back to the backup (temporary project gone)', (await rowCount(w)) === 1); await closeWin(w)
 // logout returns to the login screen
-await menu('أدوات', 'تسجيل خروج'); await p.waitForTimeout(800)
-check('logout: back to the login screen', await p.locator('text=شاشة الدخول').isVisible())
+await menu('أدوات', 'تسجيل خروج')
+check('logout: back to the login screen', await p.locator('text=شاشة الدخول').waitFor({ timeout: 10000 }).then(() => true, () => false))
 await p.locator('#pass').fill('admin1'); await p.locator('.dlg').getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(600)
 check('logout: login again', await p.locator('#home').isVisible())
 
