@@ -195,6 +195,12 @@ const DB = {
     for (const t of ['departments', 'lists', 'projects', 'employee_groups', 'holidays', 'shift_groups', 'employees', 'leaves', 'permissions', 'punches']) addCol(t, 'web_id', 'TEXT')
     // punches deleted on the site: a device / file re-read must not bring them back
     this.db.run('CREATE TABLE IF NOT EXISTS web_deleted (emp_code TEXT NOT NULL, ts TEXT NOT NULL, PRIMARY KEY (emp_code, ts))')
+    // 1.1.4 — the site's attendance rules: holidays + weekly offs come from each employee's
+    // holiday list; shifts without per-day windows use the site's simple rule (plain_rule)
+    addCol('holidays', 'list_id', 'TEXT')
+    addCol('employees', 'holiday_list', 'TEXT')
+    addCol('shift_groups', 'plain_rule', 'INTEGER DEFAULT 0')
+    this.db.run('CREATE TABLE IF NOT EXISTS web_weekly_offs (list_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY (list_id, date))')
   },
 
   audit(action, target, details = '') {

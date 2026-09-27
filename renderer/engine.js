@@ -110,9 +110,14 @@ const Engine = {
     const days = this.dates(from, to)
     const nextOf = Object.fromEntries(days.map((d, i) => [d, days[i + 1] || this.addDays(d, 1)]))
     const dayIdx = Object.fromEntries(days.map((d) => [d, this.DAY_INDEX(d)]))
-    const holidayOn = Object.fromEntries(days.map((d) => [d, holidays.find((h) => h.from_date <= d && h.to_date >= d)]))
+    // linked to the site: holidays / weekly offs of the employee's own holiday list (else the
+    // company default); rows without a list (entered here) apply to everyone
+    const defaultList = DB.one("SELECT value FROM meta WHERE key = 'web_default_holiday_list'")?.value || ''
+    const weekly = new Set(DB.all('SELECT list_id, date FROM web_weekly_offs WHERE date BETWEEN ? AND ?', [from, to]).map((w) => `${w.list_id}|${w.date}`))
+    const holidayFor = (list, d) => holidays.find((h) => h.from_date <= d && h.to_date >= d && (!h.list_id || h.list_id === list))
     const rows = []
     for (const e of emps) {
+      const hList = e.holiday_list || defaultList
       const hist = shiftHist[e.id] || []
       const groupAt = (date) => { let g = null; for (const s of hist) if (s.from_date <= date) g = s.group_id; return g ?? (hist.length ? null : e.shift_group_id) }
       // punches indexed by date → minutes; a day sees its own punches plus the next
@@ -124,7 +129,7 @@ const Engine = {
       // a previous day's extended window "owns" its after-midnight punches
       let consumedUntil = -Infinity
       const prev = this.schedule(cfg, groupAt(dayBefore), dayBefore)
-      if (prev.kind === 'windows') {
+      if (prev.kind === 'windows' && !cfg.groups[groupAt(dayBefore)]?.plain_rule) {
         const lastEnd = prev.windows.at(-1).end_out
         if (lastEnd > 1440) consumedUntil = lastEnd - 1440
       } else if (prev.kind === 'open' && prev.open.extends_next_day) consumedUntil = this.toMin(prev.open.day_end) || 0
@@ -140,24 +145,40 @@ const Engine = {
         const all = poolFor(date).filter((m) => m > consumedUntil)
         const own = all.filter((m) => m < 1440)
         const base = { emp: e, date, day, shift: cfg.groups[gid]?.name_ar || '', punches: own, in: null, out: null, late: 0, early: 0, ot: 0, worked: 0, missingOut: false }
-        const holiday = holidayOn[date]
+        const holiday = holidayFor(hList, date)
         const leave = empLeaves.find((l) => l.from_date <= date && l.to_date >= date)
         let r
         if (leave) r = { ...base, kind: 'leave', status: `إجازة${leave.type ? ' — ' + leave.type : ''}` }
-        else if (holiday) r = { ...base, kind: 'holiday', status: `عطلة رسمية — ${holiday.name_ar}` }
-        else if (sch.kind === 'none' || sch.kind === 'off') {
-          r = { ...base, kind: 'off', status: 'عطلة إسبوعية' }
+        else if (holiday) r = { ...base, kind: 'holiday', status: `عطلة رسمية — ${holiday.name_ar}`, in: own[0] ?? null, out: own.length > 1 ? own.at(-1) : null }
+        else if (sch.kind === 'none' || sch.kind === 'off' || weekly.has(`${hList}|${date}`)) {
+          r = { ...base, kind: 'off', status: 'عطلة إسبوعية', in: own[0] ?? null, out: own.length > 1 ? own.at(-1) : null }
           if (own.length && e.ot_holidays) { r.in = own[0]; r.out = own.at(-1); r.worked = r.ot = Math.max(0, r.out - r.in) }
         } else if (sch.kind === 'open') r = this.evalOpen(base, sch.open, all, e, date, today)
+        else if (cfg.groups[gid]?.plain_rule) r = this.evalPlain({ ...base, punches: byDate[date] || [] }, sch.windows[0], date, today)
         else r = this.evalWindows(base, sch.windows, all, e, date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
         consumedUntil = -Infinity
-        if (sch.kind === 'windows' && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
+        if (sch.kind === 'windows' && !cfg.groups[gid]?.plain_rule && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
         if (sch.kind === 'open' && sch.open.extends_next_day) consumedUntil = this.toMin(sch.open.day_end) || 0
         r._consumedUntil = consumedUntil
         rows.push(r)
       }
     }
     return rows
+  },
+
+  // the site's rule for a shift with only a start and an end (no per-day windows):
+  // first punch = in, last punch = out, grace minutes are deducted from lateness / early leave
+  // (the day's own punches by date; an end not after the start = overnight)
+  evalPlain(base, w, date, today) {
+    const ps = [...base.punches].sort((a, b) => a - b)
+    const start = w.check_in % 1440, end = w.check_out % 1440 > start ? w.check_out % 1440 : (w.check_out % 1440) + 1440
+    const first = ps.length ? ps[0] : null, last = ps.length > 1 ? ps.at(-1) : null
+    const late = first != null ? Math.max(0, first - (start + (w.late_min || 0))) : 0
+    const early = last != null ? Math.max(0, end - (w.early_min || 0) - last) : 0
+    const r = { ...base, in: first, out: last, late, early, ot: last != null ? Math.max(0, last - end) : 0, worked: first != null && last > first ? last - first : 0, missingOut: ps.length === 1,
+      windows: [{ in: first, out: last, late, early }] }
+    if (first == null) return { ...r, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }
+    return { ...r, kind: 'present', status: late ? 'حضور متأخر' : 'حضور' }
   },
 
   evalWindows(base, windows, pool, e, date, today, perms) {

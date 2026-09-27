@@ -89,7 +89,7 @@ const WebSync = {
     const cursor = this.meta('web_checkins_cursor')
     const since = this.meta('web_checkins_since') || Engine.addDays(Engine.today(), -120)
     const ckFilter = cursor ? [['modified', '>=', cursor]] : [['time', '>=', `${since} 00:00:00`]]
-    const [departments, designations, leaveTypes, projects, egroups, holidayLists, shiftTypes, employees, assignments, leaves, perms, checkins, recentIds] = await Promise.all([
+    const [departments, designations, leaveTypes, projects, egroups, holidayLists, shiftTypes, employees, assignments, leaves, perms, checkins, recentIds, companies] = await Promise.all([
       this.get('Department', ['name', 'department_name', 'parent_department', 'is_group']),
       this.get('Designation', ['name']),
       this.get('Leave Type', ['name']),
@@ -97,7 +97,7 @@ const WebSync = {
       this.get('Employee Group', ['name']).catch(() => []),
       this.get('Holiday List', ['name', 'weekly_off']),
       this.get('Shift Type', ['name', 'custom_shift_kind', 'custom_name_en', 'custom_is_rotational_internal', 'start_time', 'end_time', 'late_entry_grace_period', 'early_exit_grace_period', 'begin_check_in_before_shift_start_time', 'allow_check_out_after_shift_end_time', 'holiday_list', 'custom_open_hours', 'custom_day_end_time']),
-      this.get('Employee', ['name', 'employee_name', 'custom_employee_name_en', 'attendance_device_id', 'status', 'gender', 'date_of_birth', 'date_of_joining', 'department', 'designation', 'custom_employee_group', 'custom_project', 'custom_nationality', 'custom_religion', 'cell_number', 'personal_email', 'company_email', 'current_address', 'default_shift',
+      this.get('Employee', ['name', 'employee_name', 'custom_employee_name_en', 'attendance_device_id', 'status', 'gender', 'date_of_birth', 'date_of_joining', 'department', 'designation', 'custom_employee_group', 'custom_project', 'custom_nationality', 'custom_religion', 'cell_number', 'personal_email', 'company_email', 'current_address', 'default_shift', 'holiday_list',
         'custom_ot_deduct_late', 'custom_ot_before_shift', 'custom_ot_after_shift', 'custom_ot_holidays', 'custom_checkout_without_punch']),
       this.get('Shift Assignment', ['name', 'employee', 'shift_type', 'start_date', 'end_date'], [['docstatus', '=', 1], ['status', '=', 'Active']]),
       this.get('Leave Application', ['name', 'employee', 'leave_type', 'from_date', 'to_date', 'description'], [['docstatus', '=', 1], ['status', '=', 'Approved']]),
@@ -105,13 +105,14 @@ const WebSync = {
       this.get('Employee Checkin', ['name', 'employee', 'time', 'modified'], ckFilter),
       // ids only, to notice punches deleted on the site (recent days — where corrections happen)
       this.get('Employee Checkin', ['name'], [['time', '>=', `${Engine.addDays(Engine.today(), -this.RECONCILE_DAYS)} 00:00:00`]]),
+      this.get('Company', ['name', 'default_holiday_list']).catch(() => []),
     ])
     // child tables need the full documents
     const withWindows = await Promise.all(shiftTypes.filter((s) => s.custom_shift_kind !== 'Rotational').map((s) => this.doc('Shift Type', s.name).then((d) => ({ ...s, windows: d.custom_day_windows || [] }))))
     const hl = await Promise.all(holidayLists.map((h) => this.doc('Holiday List', h.name)))
     const empByCode = {}
     for (const e of employees) empByCode[this.codeOf(e)] = e.name
-    return { departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), empByCode }
+    return { departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), defaultHolidayList: companies.find((c) => c.default_holiday_list)?.default_holiday_list || '', empByCode }
   },
 
   codeOf: (e) => String(e.attendance_device_id || e.name).trim(),
@@ -206,26 +207,29 @@ const WebSync = {
     const eg = {}; for (const x of d.egroups) eg[x.name] = upsert('employee_groups', x.name, { name_ar: x.name })
     prune('employee_groups', new Set(Object.keys(eg)))
 
-    // holidays: every list's non-weekly days, one row per date
+    // holidays, as the site applies them: each employee gets the days of HIS holiday list
+    // (else the company's default) — official holidays + the list's weekly-off dates
     const hol = new Set()
     const weeklyOff = {}
+    DB.run('DELETE FROM web_weekly_offs')
     for (const h of d.holidayLists) {
       weeklyOff[h.name] = h.weekly_off
       for (const x of h.holidays || []) {
-        if (x.weekly_off) continue
-        const k = `${x.holiday_date}`
-        if (hol.has(k)) continue
+        if (x.weekly_off) { DB.run('INSERT OR IGNORE INTO web_weekly_offs (list_id, date) VALUES (?, ?)', [h.name, x.holiday_date]); continue }
+        const k = `${h.name}|${x.holiday_date}`
         hol.add(k)
-        upsert('holidays', k, { name_ar: String(x.description || 'عطلة رسمية').replace(/<[^>]+>/g, '').trim() || 'عطلة رسمية', from_date: x.holiday_date, to_date: x.holiday_date })
+        upsert('holidays', k, { name_ar: String(x.description || 'عطلة رسمية').replace(/<[^>]+>/g, '').trim() || 'عطلة رسمية', from_date: x.holiday_date, to_date: x.holiday_date, list_id: h.name })
       }
     }
     prune('holidays', hol)
+    this.setMeta('web_default_holiday_list', d.defaultHolidayList)
 
     // shifts
     const grp = {}
     for (const s of d.shiftTypes) {
       const open = s.custom_shift_kind === 'Open'
-      const id = upsert('shift_groups', s.name, { name_ar: s.name, name_en: s.custom_name_en || '', open_shift: open ? 1 : 0, rotational: 0 })
+      const plain = !open && !s.windows.some((w) => w.calendar_type !== 'Ramadan')
+      const id = upsert('shift_groups', s.name, { name_ar: s.name, name_en: s.custom_name_en || '', open_shift: open ? 1 : 0, rotational: 0, plain_rule: plain ? 1 : 0 })
       grp[s.name] = id
       DB.run('DELETE FROM shift_windows WHERE group_id = ?', [id])
       DB.run('DELETE FROM rotation_blocks WHERE group_id = ?', [id])
@@ -244,12 +248,13 @@ const WebSync = {
           }
         }
       } else {
-        // no per-day windows on the site → the shift's plain times on every day except the weekly off
+        // no per-day windows on the site → the shift's plain times on every day (the site takes
+        // weekly offs of such shifts only from the employee's holiday list)
         if (!byCal.Y.length && s.start_time && hm(s.start_time) !== hm(s.end_time)) {
           const pre = s.begin_check_in_before_shift_start_time || 60, post = s.allow_check_out_after_shift_end_time || 60
           const t = (m) => hm(`${Math.floor((((m % 1440) + 1440) % 1440) / 60)}:${(((m % 1440) + 1440) % 1440) % 60}`)
           const a = mins(s.start_time), b = mins(s.end_time), mid = a + Math.round((((b - a) + 1440) % 1440) / 2)
-          for (let day = 0; day < 7; day++) if (day !== off) byCal.Y.push({ day: Object.keys(this.DAY)[day], window_no: 1, start_in: t(a - pre), check_in: hm(s.start_time), late_allowance_min: s.late_entry_grace_period || 0,
+          for (let day = 0; day < 7; day++) byCal.Y.push({ day: Object.keys(this.DAY)[day], window_no: 1, start_in: t(a - pre), check_in: hm(s.start_time), late_allowance_min: s.late_entry_grace_period || 0,
             end_in: t(mid), start_out: t(mid + 1), early_out_min: s.early_exit_grace_period || 0, check_out: hm(s.end_time), end_out: t(b + post) })
         }
         for (const cal of ['Y', 'R']) {
@@ -284,12 +289,15 @@ const WebSync = {
       const code = this.codeOf(e)
       // code is UNIQUE: a stale row holding this code (renumbered on the site) steps aside
       DB.run("UPDATE employees SET code = code || '-' || id WHERE code = ? AND (web_id IS NULL OR web_id <> ?)", [code, e.name])
+      // renumbered on the site (device number changed): his punches move with him
+      const old = DB.one('SELECT code FROM employees WHERE web_id = ?', [e.name])?.code
+      if (old && old !== code) for (const t of ['punches', 'web_deleted']) DB.run(`UPDATE OR IGNORE ${t} SET emp_code = ? WHERE emp_code = ?`, [code, old])
       emp[e.name] = upsert('employees', e.name, {
         code, name_ar: e.employee_name || e.name, name_en: e.custom_employee_name_en || '', status: this.STATUS[e.status] || 'نشط',
         job_id: e.designation ? list[`job:${e.designation}`] ?? null : null, department_id: dep[e.department] ?? null, section_id: null,
         group_id: eg[e.custom_employee_group] ?? null, project_id: proj[e.custom_project] ?? null, shift_group_id: grp[e.default_shift] ?? null,
         hire_date: e.date_of_joining || null, gender: G[e.gender] || null, nationality_id: e.custom_nationality ? list[`nationality:${e.custom_nationality}`] : null,
-        religion: e.custom_religion || null, birth_date: e.date_of_birth || null, mobile: e.cell_number || null, email: e.personal_email || e.company_email || null, address: e.current_address || null,
+        holiday_list: e.holiday_list || null, religion: e.custom_religion || null, birth_date: e.date_of_birth || null, mobile: e.cell_number || null, email: e.personal_email || e.company_email || null, address: e.current_address || null,
         ot_deduct_late: e.custom_ot_deduct_late ? 1 : 0, ot_before: e.custom_ot_before_shift ? 1 : 0, ot_after: e.custom_ot_after_shift ? 1 : 0, ot_holidays: e.custom_ot_holidays ? 1 : 0, no_punch_out: e.custom_checkout_without_punch ? 1 : 0,
       })
     }
