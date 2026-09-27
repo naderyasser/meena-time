@@ -193,6 +193,8 @@ const DB = {
   migrateV3() {
     const addCol = (t, c, def) => { if (!this.all(`PRAGMA table_info(${t})`).some((x) => x.name === c)) this.db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`) }
     for (const t of ['departments', 'lists', 'projects', 'employee_groups', 'holidays', 'shift_groups', 'employees', 'leaves', 'permissions', 'punches']) addCol(t, 'web_id', 'TEXT')
+    // punches deleted on the site: a device / file re-read must not bring them back
+    this.db.run('CREATE TABLE IF NOT EXISTS web_deleted (emp_code TEXT NOT NULL, ts TEXT NOT NULL, PRIMARY KEY (emp_code, ts))')
   },
 
   audit(action, target, details = '') {

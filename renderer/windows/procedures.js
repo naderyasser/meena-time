@@ -49,6 +49,7 @@ async function storePunches(list, source, deviceId = null) {
   for (const p of list) {
     if (!known.has(p.code)) { unknown++; continue }
     if (Engine.isPosted(p.ts.slice(0, 10))) { posted++; continue }
+    if (DB.one('SELECT 1 FROM web_deleted WHERE emp_code = ? AND ts = ?', [p.code, p.ts])) { dup++; continue } // deleted on the site
     DB.run('INSERT OR IGNORE INTO punches (emp_code, ts, source, device_id) VALUES (?, ?, ?, ?)', [p.code, p.ts, source, deviceId])
     if (DB.one('SELECT changes() AS c').c > 0) added++
     else dup++
@@ -154,6 +155,7 @@ function openEditPunches() {
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) return UI.message('الوقت بصيغة HH:MM')
       if (Engine.isPosted(date())) return UI.message('هذا اليوم مرحّل — الغِ الترحيل أولاً')
       DB.run("INSERT OR IGNORE INTO punches (emp_code, ts, source) VALUES (?, ?, 'manual')", [e.code, `${date()} ${t}:00`])
+      DB.run('DELETE FROM web_deleted WHERE emp_code = ? AND ts = ?', [e.code, `${date()} ${t}:00`]) // entered by hand on purpose
       await DB.flush()
       filters.querySelector('#ep-time').value = ''
       load()
@@ -161,6 +163,7 @@ function openEditPunches() {
     async function del() {
       if (!current) return UI.message('اختر الحركة')
       if (Engine.isPosted(date())) return UI.message('هذا اليوم مرحّل — الغِ الترحيل أولاً')
+      if (WebSync.linked && current.web_id && current.web_id !== 'dup') return UI.message('هذه الحركة موجودة على الموقع — احذفها من الموقع وستُحذف هنا عند المزامنة')
       if (!(await yesNo('تأكيد', 'حذف الحركة المحددة؟'))) return
       DB.run('DELETE FROM punches WHERE id = ?', [current.id])
       await DB.flush()
@@ -174,7 +177,8 @@ async function deletePunchesInPeriod(sources, title) {
   const p = await periodDialog(title)
   if (!p) return
   if (DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [p.to, p.from])) return UI.message('الفترة تتداخل مع فترة مرحّلة — الغِ الترحيل أولاً')
-  const where = `ts BETWEEN ? AND ? AND source IN (${sources.map(() => '?').join(',')})`
+  // while linked, punches already on the site are deleted there (they follow here on the next sync)
+  const where = `ts BETWEEN ? AND ? AND source IN (${sources.map(() => '?').join(',')})${WebSync.linked ? " AND (web_id IS NULL OR web_id = 'dup')" : ''}`
   const n = DB.one(`SELECT COUNT(*) AS n FROM punches WHERE ${where}`, [p.from, p.to + ' 99', ...sources]).n
   if (!n) return UI.message('لا توجد حركات في هذه الفترة')
   if (!(await yesNo('تأكيد', `سيتم حذف ${n} حركة. متابعة؟`))) return

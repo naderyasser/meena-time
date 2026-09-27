@@ -68,7 +68,7 @@ const WebSync = {
       const pushed = await this.push(data.empByCode)
       const res = this.apply(data)
       this.setMeta('web_last_sync', `${Engine.today()} ${new Date().toTimeString().slice(0, 8)}`)
-      DB.audit('مزامنة مع الموقع', '', `${res.employees} موظف، ${res.punches} حركة جديدة، ${pushed} حركة مرفوعة`)
+      DB.audit('مزامنة مع الموقع', '', `${res.employees} موظف، ${res.punches} حركة جديدة، ${pushed} حركة مرفوعة${res.removed ? `، ${res.removed} حركة حُذفت من الموقع` : ''}`)
       await DB.flush()
       const failNote = this.pushFailed ? ` — لم تُرفع ${this.pushFailed} حركة: ${this.pushError}` : ''
       this.showStatus(this.pushFailed ? `مرتبط بالموقع · آخر مزامنة ${this.meta('web_last_sync').slice(0, 16)} · لم تُرفع ${this.pushFailed} حركة` : undefined)
@@ -84,12 +84,12 @@ const WebSync = {
   },
 
   async fetchAll() {
-    // punches: first time the last 120 days, then everything created on the site since the
-    // last pull (by the site's own clock) — so late / back-dated punches are caught too
+    // punches: first time the last 120 days, then everything created or edited on the site since
+    // the last pull (by the site's own clock) — so late / back-dated / corrected punches are caught too
     const cursor = this.meta('web_checkins_cursor')
     const since = this.meta('web_checkins_since') || Engine.addDays(Engine.today(), -120)
-    const ckFilter = cursor ? [['creation', '>=', cursor]] : [['time', '>=', `${since} 00:00:00`]]
-    const [departments, designations, leaveTypes, projects, egroups, holidayLists, shiftTypes, employees, assignments, leaves, perms, checkins] = await Promise.all([
+    const ckFilter = cursor ? [['modified', '>=', cursor]] : [['time', '>=', `${since} 00:00:00`]]
+    const [departments, designations, leaveTypes, projects, egroups, holidayLists, shiftTypes, employees, assignments, leaves, perms, checkins, recentIds] = await Promise.all([
       this.get('Department', ['name', 'department_name', 'parent_department', 'is_group']),
       this.get('Designation', ['name']),
       this.get('Leave Type', ['name']),
@@ -102,14 +102,16 @@ const WebSync = {
       this.get('Shift Assignment', ['name', 'employee', 'shift_type', 'start_date', 'end_date'], [['docstatus', '=', 1], ['status', '=', 'Active']]),
       this.get('Leave Application', ['name', 'employee', 'leave_type', 'from_date', 'to_date', 'description'], [['docstatus', '=', 1], ['status', '=', 'Approved']]),
       this.get('Permission Request', ['name', 'employee', 'permission_date', 'from_time', 'to_time', 'reason'], [['docstatus', '=', 1], ['status', '=', 'Approved']]).catch(() => []),
-      this.get('Employee Checkin', ['name', 'employee', 'time', 'creation'], ckFilter),
+      this.get('Employee Checkin', ['name', 'employee', 'time', 'modified'], ckFilter),
+      // ids only, to notice punches deleted on the site (recent days — where corrections happen)
+      this.get('Employee Checkin', ['name'], [['time', '>=', `${Engine.addDays(Engine.today(), -this.RECONCILE_DAYS)} 00:00:00`]]),
     ])
     // child tables need the full documents
     const withWindows = await Promise.all(shiftTypes.filter((s) => s.custom_shift_kind !== 'Rotational').map((s) => this.doc('Shift Type', s.name).then((d) => ({ ...s, windows: d.custom_day_windows || [] }))))
     const hl = await Promise.all(holidayLists.map((h) => this.doc('Holiday List', h.name)))
     const empByCode = {}
     for (const e of employees) empByCode[this.codeOf(e)] = e.name
-    return { departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, empByCode }
+    return { departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), empByCode }
   },
 
   codeOf: (e) => String(e.attendance_device_id || e.name).trim(),
@@ -117,6 +119,7 @@ const WebSync = {
   // ── local punches → site (device / file / manual, not yet sent) ──
   // Preferred: the site's desktop endpoint (server/desktop_sync.py — stores them
   // like device punches, no GPS needed). Sites without it: plain REST inserts.
+  RECONCILE_DAYS: 40,
   PUSH_METHOD: '/api/method/base_meena.biometric_management.desktop_sync.push_checkins',
   async push(empByCode) {
     const rows = DB.all("SELECT id, emp_code, ts FROM punches WHERE web_id IS NULL AND source <> 'web' ORDER BY ts LIMIT 5000")
@@ -125,10 +128,11 @@ const WebSync = {
     this.pushFailed = 0
     this.pushError = ''
     const fail = (err) => { this.pushFailed++; this.pushError ||= err }
-    const done = (r, name) => { DB.run('UPDATE punches SET web_id = ? WHERE id = ?', [name, r.id]); n++ }
+    this.pushedNow = new Set() // uploaded this round — not yet in the id list fetched before the upload
+    const done = (r, name) => { DB.run('UPDATE punches SET web_id = ? WHERE id = ?', [name, r.id]); this.pushedNow.add(name); n++ }
     let useMethod = true // checked every round: installing the endpoint takes effect without a restart
-    for (let i = 0; i < rows.length; i += 200) {
-      const batch = rows.slice(i, i + 200)
+    for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100) // ~8 s per 100 on the site — well inside the 30 s timeout
       if (useMethod) {
         const res = await window.bridge.webCall('POST', this.PUSH_METHOD, { punches: batch.map((r) => ({ employee: empByCode[r.emp_code], time: r.ts })) })
         if (res.offline) throw new Error(res.error)
@@ -326,16 +330,30 @@ const WebSync = {
       const code = codeByEmp[c.employee]
       if (!code) continue
       const ts = String(c.time).slice(0, 19)
+      const mine = DB.one('SELECT id, emp_code, ts FROM punches WHERE web_id = ?', [c.name])
+      if (mine && (mine.ts !== ts || mine.emp_code !== code)) { // corrected on the site
+        if (DB.one('SELECT 1 FROM punches WHERE emp_code = ? AND ts = ? AND id <> ?', [code, ts, mine.id])) DB.run('DELETE FROM punches WHERE id = ?', [mine.id])
+        else DB.run('UPDATE punches SET emp_code = ?, ts = ? WHERE id = ?', [code, ts, mine.id])
+      }
       const had = DB.one('SELECT id, web_id FROM punches WHERE emp_code = ? AND ts = ?', [code, ts])
       if (had) { if (!had.web_id || had.web_id === 'dup') DB.run('UPDATE punches SET web_id = ? WHERE id = ?', [c.name, had.id]); continue }
       DB.run("INSERT INTO punches (emp_code, ts, source, web_id) VALUES (?, ?, 'web', ?)", [code, ts, c.name])
       punches++
     }
-    // next time only fetch punches created after the newest one seen (>=: same-second ones are skipped above)
-    const newest = d.checkins.reduce((m, c) => (String(c.creation || '') > m ? String(c.creation) : m), this.meta('web_checkins_cursor'))
+    // deleted on the site (recent window): drop here too, and remember so a device re-read won't revive them
+    const from = `${Engine.addDays(Engine.today(), -this.RECONCILE_DAYS)} 00:00:00`
+    let removed = 0
+    for (const r of DB.all("SELECT id, emp_code, ts, web_id FROM punches WHERE web_id IS NOT NULL AND web_id <> 'dup' AND ts >= ?", [from])) {
+      if (d.recentIds.has(r.web_id) || this.pushedNow?.has(r.web_id) || Engine.isPosted(r.ts.slice(0, 10))) continue
+      DB.run('DELETE FROM punches WHERE id = ?', [r.id])
+      DB.run('INSERT OR IGNORE INTO web_deleted (emp_code, ts) VALUES (?, ?)', [r.emp_code, r.ts])
+      removed++
+    }
+    // next time only fetch punches created / edited after the newest change seen (>=: same-second ones are skipped above)
+    const newest = d.checkins.reduce((m, c) => (String(c.modified || '') > m ? String(c.modified) : m), this.meta('web_checkins_cursor'))
     if (newest) this.setMeta('web_checkins_cursor', newest)
     DB.run('COMMIT')
-    return { employees: d.employees.length, groups: d.shiftTypes.length, punches }
+    return { employees: d.employees.length, groups: d.shiftTypes.length, punches, removed }
   },
 }
 

@@ -41,8 +41,8 @@ export function start(port = 8765) {
     ],
     'Permission Request': [{ name: 'PR-1', employee: 'HR-EMP-00002', permission_date: '2026-09-15', from_time: '10:00:00', to_time: '12:00:00', reason: 'y', docstatus: 1, status: 'Approved' }],
     'Employee Checkin': [
-      { name: 'CHK-1', employee: 'HR-EMP-00001', time: '2026-09-20 07:55:10.000000', creation: '2026-09-20 07:55:11.000000' },
-      { name: 'CHK-2', employee: 'HR-EMP-00001', time: '2026-09-20 16:05:00', creation: '2026-09-20 16:05:01.000000' },
+      { name: 'CHK-1', employee: 'HR-EMP-00001', time: '2026-09-20 07:55:10.000000', modified: '2026-09-20 07:55:11.000000' },
+      { name: 'CHK-2', employee: 'HR-EMP-00001', time: '2026-09-20 16:05:00', modified: '2026-09-20 16:05:01.000000' },
     ],
   }
   let seq = 100
@@ -64,7 +64,7 @@ export function start(port = 8765) {
           if (!db.Employee.some((e) => e.name === p.employee)) return { ...p, error: 'employee not found' }
           const had = db['Employee Checkin'].find((r) => r.employee === p.employee && String(r.time).slice(0, 19) === p.time)
           if (had) return { ...p, name: had.name }
-          const row = { employee: p.employee, time: p.time, device_id: 'Meena Time', name: `CHK-${++seq}`, creation: new Date().toISOString().replace('T', ' ').slice(0, 26) }
+          const row = { employee: p.employee, time: p.time, device_id: 'Meena Time', name: `CHK-${++seq}`, modified: new Date().toISOString().replace('T', ' ').slice(0, 26) }
           db['Employee Checkin'].push(row); posted.push(row)
           return { ...p, name: row.name }
         })
@@ -84,7 +84,7 @@ export function start(port = 8765) {
         if (dt === 'Employee Checkin' && opts.geo && !doc.latitude) return send(417, { exception: 'frappe.exceptions.ValidationError: Latitude and longitude values are required for checking in.' })
         if (dt === 'Employee Checkin' && rows.some((r) => r.employee === doc.employee && String(r.time).slice(0, 19) === doc.time))
           return send(417, { exception: 'frappe.exceptions.ValidationError: This employee already has a log with the same timestamp.' })
-        const row = { ...doc, name: `CHK-${++seq}`, creation: new Date().toISOString().replace('T', ' ').slice(0, 26) }
+        const row = { ...doc, name: `CHK-${++seq}`, modified: new Date().toISOString().replace('T', ' ').slice(0, 26) }
         rows.push(row); posted.push(row)
         send(200, { data: row })
       })
