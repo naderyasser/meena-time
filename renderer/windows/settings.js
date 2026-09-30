@@ -101,16 +101,129 @@ function openUsers() {
   })
 }
 
-async function openSystemSettings() {
-  const p = await window.bridge.paths()
-  UI.dialog({
-    head: 'اعدادات النظام', width: 560,
-    bodyHtml: `<div class="fields" style="grid-template-columns:150px 1fr">
-      <label>مجلد البيانات</label><input type="text" readonly dir="ltr" value="${UI.esc(p.data)}">
-      <label>النسخ الاحتياطية</label><input type="text" readonly dir="ltr" value="${UI.esc(p.backups)}">
-      <label></label><div style="font-size:12px">يتم أخذ نسخة احتياطية تلقائية يومياً عند فتح البرنامج، والاحتفاظ بآخر 30 نسخة.</div></div>`,
-    buttons: [{ label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close() }],
+// «إعدادات النظام» — Apex Time's system settings screen: attendance rules (engine.js
+// SETTINGS_DEFAULT), the «بيان تأخير الموظفين» report colours, and the daily automatic
+// read-and-post schedule. Saved as one JSON row (meta sys_settings).
+const SHIFT_COUNT_NAMES = [[1, 'وردية'], [2, 'ورديتان'], [3, 'ثلاث ورديات'], [4, 'أربع ورديات']]
+const COLOR_FIELDS = [['holiday', 'عطله رسمية'], ['permission', 'أذن'], ['weekly', 'عطلة أسبوعية'], ['early', 'خروج مبكر'],
+  ['leave', 'أجازة'], ['late', 'تأخير'], ['absent', 'غياب'], ['present', 'مداوم']]
+
+function openSystemSettings() {
+  UI.openWindow('sys-settings', 'إعدادات النظام', { width: 1000, height: 470 }, (body, win) => {
+    const S = Engine.settings()
+    const devices = DB.all('SELECT id, name FROM devices ORDER BY name')
+    let times = [...(S.auto_times || [])].sort()
+    const bar = UI.toolbar([
+      { key: 'save', label: 'حفظ', icon: 'save', onClick: save },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const num = (id, v, on = true) => `<input type="text" inputmode="numeric" dir="ltr" class="num" id="${id}" value="${+v || 0}" ${on ? '' : 'disabled'}>`
+    const form = UI.el(`<div class="sys-set">
+      <fieldset class="rules">
+        <div class="row"><label>وقت إهمال الحركات بالدقائق</label>${num('s-ignore', S.ignore_min)}</div>
+        <div class="row"><label>عدد الورديات التي تظهر في التقارير</label><select id="s-shifts">${SHIFT_COUNT_NAMES.map(([v, l]) => `<option value="${v}" ${+S.report_shifts === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="row"><label>يحتسب الاضافي قبل الدوام</label>${num('s-otb', S.ot_before_min)}<span>بالدقائق</span></div>
+        <div class="row"><label>يحتسب الاضافي بعد الدوام</label>${num('s-ota', S.ot_after_min)}<span>بالدقائق</span></div>
+        <div class="row"><label><input type="checkbox" id="s-al" ${S.absent_late_on ? 'checked' : ''}> يتم احتساب اليوم غياب بعد تأخير</label>${num('s-alm', S.absent_late_min, S.absent_late_on)}<span>بالدقائق</span></div>
+        <div class="row"><label><input type="checkbox" id="s-ae" ${S.absent_early_on ? 'checked' : ''}> يتم احتساب اليوم غياب بعد انصراف مبكر</label>${num('s-aem', S.absent_early_min, S.absent_early_on)}<span>بالدقائق</span></div>
+        <div class="row"><label><input type="checkbox" id="s-fl" ${S.first_last ? 'checked' : ''}> احتساب اول حركة دخول واخر حركة انصراف</label></div>
+      </fieldset>
+      <fieldset class="auto">
+        <div class="row"><label><input type="checkbox" id="s-auto" ${S.auto_read ? 'checked' : ''}> قراءة الحركات اليوميه والترحيل الالي</label></div>
+        <div class="row"><label>قراءة بيانات الأجهزة</label><select id="s-dev"><option value="">الكل</option>${devices.map((d) => `<option value="${d.id}" ${String(S.auto_device) === String(d.id) ? 'selected' : ''}>${UI.esc(d.name)}</option>`).join('')}</select></div>
+        <div class="row top"><label>مواعيد القراءة</label><div class="times">
+          <div class="add"><input type="text" id="s-time" value="00:00:00" dir="ltr" maxlength="8" placeholder="00:00:00"><button type="button" id="s-tadd" title="اضافة موعد">${ICONS.new || '+'}</button><button type="button" id="s-tdel" title="حذف الموعد المحدد">${ICONS.del || '×'}</button></div>
+          <select id="s-tlist" size="5" dir="ltr"></select></div></div>
+        <div class="note">يعمل أثناء فتح البرنامج: تُقرأ الأجهزة في كل موعد، ويُرحَّل كل يوم منتهٍ لم يُرحَّل بعد.</div>
+      </fieldset>
+      <fieldset class="colors"><legend>تقرير بيان تأخير الموظفين</legend>
+        ${COLOR_FIELDS.map(([k, l]) => `<label class="clr"><input type="color" id="c-${k}" value="${S.colors[k]}"> ${l}</label>`).join('')}
+      </fieldset>
+    </div>`)
+    body.append(bar, form)
+    const $ = (id) => form.querySelector(id)
+    const toggle = (chk, inp) => $(chk).addEventListener('change', () => { $(inp).disabled = !$(chk).checked })
+    toggle('#s-al', '#s-alm'); toggle('#s-ae', '#s-aem')
+    const drawTimes = () => { $('#s-tlist').innerHTML = times.map((t) => `<option>${t}</option>`).join('') }
+    drawTimes()
+    $('#s-tadd').onclick = () => {
+      const m = ($('#s-time').value || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+      if (!m || +m[1] > 23 || +m[2] > 59 || +(m[3] || 0) > 59) return UI.message('اكتب الموعد بصيغة 24 ساعة: ساعة:دقيقة:ثانية (مثال 22:40:00)')
+      const t = `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`
+      if (!times.includes(t)) times = [...times, t].sort()
+      drawTimes()
+    }
+    $('#s-tdel').onclick = () => { const t = $('#s-tlist').value; if (t) { times = times.filter((x) => x !== t); drawTimes() } }
+
+    async function save() {
+      const n = (id, max = 1440) => {
+        const v = $(id).value.trim()
+        if (!/^\d{1,4}$/.test(v) || +v > max) throw new Error('القيم بالدقائق: أرقام صحيحة من 0 إلى ' + max)
+        return +v
+      }
+      let next
+      try {
+        next = {
+          ignore_min: n('#s-ignore', 120), report_shifts: +$('#s-shifts').value, ot_before_min: n('#s-otb'), ot_after_min: n('#s-ota'),
+          absent_late_on: $('#s-al').checked ? 1 : 0, absent_late_min: n('#s-alm'), absent_early_on: $('#s-ae').checked ? 1 : 0, absent_early_min: n('#s-aem'),
+          first_last: $('#s-fl').checked ? 1 : 0,
+          colors: Object.fromEntries(COLOR_FIELDS.map(([k]) => [k, $(`#c-${k}`).value])),
+          auto_read: $('#s-auto').checked ? 1 : 0, auto_device: $('#s-dev').value, auto_times: times,
+        }
+      } catch (e) { return UI.message(e.message) }
+      if (next.auto_read && !next.auto_times.length) return UI.message('حدد موعداً واحداً على الأقل لقراءة الحركات')
+      setMeta('sys_settings', JSON.stringify(next))
+      DB.audit('إعدادات النظام', 'حفظ')
+      await DB.flush()
+      AutoRead.restart()
+      UI.message('تم حفظ إعدادات النظام')
+    }
   })
+}
+
+// «قراءة الحركات اليوميه والترحيل الالي» — while the app is open: at each chosen time read
+// the device(s), then post every finished day since the last posted period (never today).
+const AutoRead = {
+  timer: null, done: new Set(),
+  read: (d) => window.bridge.readDevice({ ip: d.ip, port: +d.port || 4370 }),
+  restart() {
+    clearInterval(this.timer)
+    this.timer = null
+    if (!Engine.settings().auto_read) return
+    this.timer = setInterval(() => this.tick(), 20000)
+    this.tick()
+  },
+  async tick(now = new Date()) {
+    const S = Engine.settings()
+    if (!S.auto_read) return
+    const day = Engine.iso(now), hms = now.toTimeString().slice(0, 8)
+    for (const t of S.auto_times || []) {
+      const key = `${day} ${t}`
+      // due = the time passed within the last 10 minutes and not run yet today
+      const late = (Engine.toMin(hms) - Engine.toMin(t)) * 60 + (+hms.slice(6) - +t.slice(6))
+      if (late < 0 || late > 600 || this.done.has(key)) continue
+      this.done.add(key)
+      await this.run(S)
+    }
+  },
+  async run(S = Engine.settings()) {
+    const devices = DB.all('SELECT * FROM devices').filter((d) => !S.auto_device || String(d.id) === String(S.auto_device))
+    const log = []
+    for (const d of devices) {
+      const res = await this.read(d)
+      log.push(res.ok ? `${d.name}: ${await storePunches(res.punches, 'device', d.id)}` : `${d.name}: ${res.error || 'تعذّر الاتصال'}`)
+    }
+    const yesterday = Engine.addDays(Engine.today(), -1)
+    const lastPosted = DB.one('SELECT MAX(to_date) AS d FROM posted_periods')?.d
+    const from = lastPosted ? Engine.addDays(lastPosted, 1) : DB.one('SELECT MIN(substr(ts, 1, 10)) AS d FROM punches')?.d
+    if (from && from <= yesterday && !DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [yesterday, from])) {
+      const n = Engine.post(from, yesterday)
+      log.push(`ترحيل ${from} → ${yesterday}: ${n} يوم`)
+    }
+    DB.audit('قراءة وترحيل آلي', log.join(' | ') || 'لا توجد أجهزة')
+    await DB.flush()
+    return log
+  },
 }
 
 async function backupNow() {

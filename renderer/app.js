@@ -25,7 +25,7 @@ const MENUS = [
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
   { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings], ['الربط بالموقع', openWebLink]] },
   { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
-  { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', () => UI.message(`Meena Time — الإصدار ${VERSION}`)]] },
+  { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', async () => { const p = await window.bridge.paths(); UI.message(`Meena Time — الإصدار ${VERSION}\nمجلد البيانات: ${p.data}\nالنسخ الاحتياطية: ${p.backups} (نسخة تلقائية يومياً، آخر 30 نسخة)`) }]] },
 ]
 
 let licence = { ok: false }
@@ -217,4 +217,5 @@ async function restoreBackup() {
   buildMenu()
   renderHome()
   WebSync.init()
+  AutoRead.restart()
 })()

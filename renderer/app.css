@@ -231,3 +231,24 @@ body.pdf { background: #fff; overflow: visible; }
 
 /* «مرتبط بالموقع» status chip (bottom-left) — click to sync now */
 #sync-status { position: fixed; left: 8px; bottom: 6px; z-index: 90000; background: rgba(255,255,255,.9); border: 1px solid #9fb6cf; padding: 2px 10px; font-size: 12px; color: #1b3d8f; cursor: pointer; direction: rtl; border-radius: 2px; }
+
+/* «إعدادات النظام» (Apex Time layout: rules right, auto-read left, colours bottom) */
+.sys-set { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; overflow: auto; }
+.sys-set fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 8px 12px; background: #fff; }
+.sys-set legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; background: #fff; }
+.sys-set .rules { grid-column: 1; grid-row: 1; }
+.sys-set .auto { grid-column: 2; grid-row: 1; }
+.sys-set .colors { grid-column: 1; display: grid; grid-template-columns: repeat(4, auto); gap: 6px 14px; align-items: center; }
+.sys-set .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.sys-set .row.top { align-items: flex-start; }
+.sys-set .row > label:first-child { flex: 1; color: #0b3fa8; font-weight: bold; }
+.sys-set .num { width: 70px; text-align: center; }
+.sys-set .row select { width: 150px; }
+.sys-set .times { display: flex; flex-direction: column; gap: 4px; width: 210px; }
+.sys-set .times .add { display: flex; gap: 4px; }
+.sys-set .times .add input { flex: 1; }
+.sys-set .times .add button { width: 30px; padding: 2px; }
+.sys-set .times select { height: 96px; }
+.sys-set .note { font-size: 12px; color: #555; margin-top: 6px; }
+.sys-set .clr { display: flex; align-items: center; gap: 6px; color: #0b3fa8; }
+.sys-set .clr input { width: 34px; height: 20px; padding: 0; border: 1px solid #888; }

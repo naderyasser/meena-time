@@ -1,0 +1,125 @@
+// «إعدادات النظام» — every rule in the engine + the settings window + automatic read/post.
+// Run: xvfb-run -a node tools/settings-test.mjs
+import { _electron as electron } from '/home/frappeuser/tamken3-audit/node_modules/playwright/index.mjs'
+import fs from 'fs'
+const ROOT = '/root/meena-time', UD = '/tmp/mt-settingstest'
+fs.rmSync(UD, { recursive: true, force: true })
+const app = await electron.launch({ executablePath: `${ROOT}/node_modules/electron/dist/electron`, args: ['.', '--no-sandbox', `--user-data-dir=${UD}`], cwd: ROOT })
+const p = await app.firstWindow()
+await p.waitForSelector('text=شاشة الدخول', { timeout: 20000 })
+let pass = 0, fail = 0
+const check = (name, ok, detail = '') => { ok ? pass++ : fail++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`) }
+
+// one employee, 1 shift 08:00–16:00 (grace 0) every day, two periods on day 2
+await p.evaluate(() => {
+  DB.run('BEGIN')
+  DB.run("INSERT INTO shift_groups (id, name_ar) VALUES (1, 'صباحي')")
+  for (let d = 0; d < 7; d++) {
+    DB.run(`INSERT INTO shift_windows (group_id, calendar, slot, window_no, is_off, start_in, check_in, late_min, end_in, start_out, early_min, check_out, end_out)
+      VALUES (1, 'Y', ${d}, 1, 0, '06:00','08:00',0,'11:00','11:30',0,'${d === 2 ? '12:00' : '16:00'}','${d === 2 ? '12:30' : '20:00'}')`)
+    if (d === 2) DB.run(`INSERT INTO shift_windows (group_id, calendar, slot, window_no, is_off, start_in, check_in, late_min, end_in, start_out, early_min, check_out, end_out)
+      VALUES (1, 'Y', 2, 2, 0, '12:31','13:00',0,'14:00','14:30',0,'17:00','21:00')`)
+  }
+  DB.run("INSERT INTO employees (id, code, name_ar, shift_group_id, hire_date, ot_before, ot_after) VALUES (1, '1', 'موظف', 1, '2026-01-01', 1, 1)")
+  DB.run("INSERT INTO employee_shifts (employee_id, group_id, from_date) VALUES (1, 1, '2026-01-01')")
+  DB.run('COMMIT')
+})
+const day = (dow) => p.evaluate((dow) => { let d = '2026-06-01'; while (Engine.DAY_INDEX(d) !== dow) d = Engine.addDays(d, 1); return d }, dow)
+const D0 = await day(0), D2 = await day(2) // D2 = the two-period day
+const setPunches = (date, times) => p.evaluate(({ date, times }) => {
+  DB.run('DELETE FROM punches'); for (const t of times) DB.run("INSERT INTO punches (emp_code, ts, source) VALUES ('1', ?, 'device')", [`${date} ${t}:00`])
+}, { date, times })
+const setS = (s) => p.evaluate((s) => DB.run("INSERT INTO meta (key, value) VALUES ('sys_settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(s)]), s)
+const row = (date) => p.evaluate((date) => { const r = Engine.compute({ from: date, to: date })[0]; return { kind: r.kind, in: Engine.hm(r.in), out: Engine.hm(r.out), late: r.late, early: r.early, ot: r.ot, punches: r.punches.length } }, date)
+
+// defaults = old behaviour
+await setS({})
+await setPunches(D0, ['07:40', '16:25'])
+let r = await row(D0)
+check('defaults: OT before 20 + after 25 = 45', r.ot === 45, JSON.stringify(r))
+
+// ignore window
+await setPunches(D0, ['07:58', '08:03', '16:00'])
+await setS({ ignore_min: 10 })
+r = await row(D0)
+check('ignore 10 min: 08:03 dropped, in 07:58', r.in === '07:58' && r.punches === 2, JSON.stringify(r))
+await setS({ ignore_min: 0 })
+r = await row(D0)
+check('ignore 0: all 3 punches kept', r.punches === 3, JSON.stringify(r))
+
+// OT thresholds (Apex help: 30 min set, came 20 early → no OT)
+await setPunches(D0, ['07:40', '16:25'])
+await setS({ ot_before_min: 30, ot_after_min: 30 })
+r = await row(D0)
+check('OT thresholds 30/30: 20 early + 25 late → 0', r.ot === 0, JSON.stringify(r))
+await setPunches(D0, ['07:20', '16:45'])
+r = await row(D0)
+check('OT thresholds 30/30: 40 early + 45 late → 85', r.ot === 85, JSON.stringify(r))
+
+// absent after late / early
+await setPunches(D0, ['09:10', '16:00'])
+await setS({ absent_late_on: 1, absent_late_min: 60 })
+r = await row(D0)
+check('absent after 60 min late: 70 min late → غياب', r.kind === 'absent', JSON.stringify(r))
+await setS({ absent_late_on: 0, absent_late_min: 60 })
+r = await row(D0)
+check('rule off: 70 min late stays present', r.kind === 'present' && r.late === 70, JSON.stringify(r))
+await setPunches(D0, ['08:00', '15:00'])
+await setS({ absent_early_on: 1, absent_early_min: 30 })
+r = await row(D0)
+check('absent after 30 min early leave: left 60 early → غياب', r.kind === 'absent', JSON.stringify(r))
+
+// first in / last out (2 periods 08–12 & 13–17, 4 punches)
+await setPunches(D2, ['08:00', '10:30', '11:00', '17:00'])
+await setS({ first_last: 0 })
+r = await row(D2)
+check('two periods, rule off: period 2 has no in → late/early from pairing', r.in === '08:00', JSON.stringify(r))
+await setS({ first_last: 1 })
+r = await row(D2)
+check('first-in-last-out: in 08:00 out 17:00, no early', r.in === '08:00' && r.out === '17:00' && r.early === 0 && r.late === 0, JSON.stringify(r))
+
+// the settings window: open, fill, save, reopen
+await p.evaluate(() => { document.querySelectorAll('.dlg-backdrop').forEach((b) => b.remove()); Session.userId = 1; Session.username = 'test'; Session.admin = true; buildMenu(); renderHome() })
+await p.evaluate(() => openSystemSettings())
+await p.waitForSelector('.sys-set')
+await p.fill('#s-ignore', '7'); await p.selectOption('#s-shifts', '2'); await p.fill('#s-otb', '15'); await p.fill('#s-ota', '20')
+await p.check('#s-al'); await p.fill('#s-alm', '90'); await p.check('#s-fl')
+await p.fill('#s-time', '10:30:00'); await p.click('#s-tadd'); await p.fill('#s-time', '22:40:00'); await p.click('#s-tadd')
+await p.check('#s-auto')
+await p.click('.win:has(.sys-set) .toolbar button[data-key=save]')
+await p.waitForSelector('text=تم حفظ إعدادات النظام'); await p.click('.dlg button:has-text("موافق")')
+let S = await p.evaluate(() => Engine.settings())
+check('window saves all fields', S.ignore_min === 7 && S.report_shifts === 2 && S.ot_before_min === 15 && S.ot_after_min === 20 && S.absent_late_on === 1 && S.absent_late_min === 90 && S.first_last === 1 && S.auto_read === 1 && S.auto_times.join() === '10:30:00,22:40:00', JSON.stringify(S))
+await p.click('.win:has(.sys-set) .toolbar button[data-key=close]')
+await p.evaluate(() => openSystemSettings()); await p.waitForSelector('.sys-set')
+const shown = await p.evaluate(() => ({ ig: document.querySelector('#s-ignore').value, t: [...document.querySelectorAll('#s-tlist option')].map((o) => o.value).join() }))
+check('reopened window shows saved values', shown.ig === '7' && shown.t === '10:30:00,22:40:00', JSON.stringify(shown))
+await p.fill('#s-ignore', 'abc'); await p.click('.win:has(.sys-set) .toolbar button[data-key=save]')
+check('bad number rejected', await p.isVisible('text=القيم بالدقائق'))
+await p.click('.dlg button:has-text("موافق")'); await p.click('.win:has(.sys-set) .toolbar button[data-key=close]')
+
+// auto read + post (device read stubbed): reads, stores, posts finished days only
+const res = await p.evaluate(async () => {
+  DB.run('DELETE FROM punches'); DB.run("INSERT INTO devices (id, name, ip, port) VALUES (1, 'جهاز', '10.0.0.5', 4370)")
+  const y = Engine.addDays(Engine.today(), -1)
+  AutoRead.read = async () => ({ ok: true, punches: [{ code: '1', ts: `${y} 08:00:00` }, { code: '1', ts: `${Engine.today()} 08:00:00` }] })
+  const log = await AutoRead.run(Engine.settings())
+  const posted = DB.all('SELECT * FROM posted_periods')
+  return { log, posted, punches: DB.one('SELECT COUNT(*) n FROM punches').n, today: Engine.today(), y }
+})
+check('auto read stored the device punches', res.punches === 2, JSON.stringify(res.log))
+check('auto post covers finished days only (to = yesterday)', res.posted.length === 1 && res.posted[0].to_date === res.y, JSON.stringify(res.posted))
+const due = await p.evaluate(async () => {
+  let runs = 0; const orig = AutoRead.run; AutoRead.run = async () => { runs++ }
+  const t = new Date(); const hms = (d) => d.toTimeString().slice(0, 8)
+  const s = Engine.settings(); s.auto_times = [hms(new Date(t.getTime() - 60000))]; s.auto_read = 1
+  DB.run("UPDATE meta SET value = ? WHERE key = 'sys_settings'", [JSON.stringify(s)])
+  AutoRead.done.clear(); await AutoRead.tick(t); await AutoRead.tick(t)
+  AutoRead.run = orig; return runs
+})
+check('scheduled time due → runs exactly once', due === 1, `runs=${due}`)
+
+console.log(`\n${pass} passed, ${fail} failed`)
+await app.close()
+fs.rmSync(UD, { recursive: true, force: true })
+process.exit(fail ? 1 : 0)

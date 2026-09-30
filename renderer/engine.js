@@ -15,7 +15,32 @@
 //    late/early gap cancels it.
 //  • the employee's shift is taken from employee_shifts at that date, and posted
 //    («ترحيل») days come from their frozen snapshot — later edits never rewrite them.
+//  • «إعدادات النظام» (Apex Time's system settings, meta `sys_settings`): ignore window
+//    for repeated punches, minimum early/late minutes before overtime counts, absent after
+//    N minutes late / early, first-in-last-out. Defaults reproduce the old behaviour.
 const Engine = {
+  SETTINGS_DEFAULT: {
+    ignore_min: 0, report_shifts: 4, ot_before_min: 0, ot_after_min: 0,
+    absent_late_on: 0, absent_late_min: 0, absent_early_on: 0, absent_early_min: 0, first_last: 0,
+    colors: { holiday: '#b2f0f0', permission: '#ff7fbf', leave: '#90ee90', late: '#ffff00', weekly: '#ffa500', absent: '#ff0000', early: '#0000ff', present: '#ffffff' },
+    auto_read: 0, auto_device: '', auto_times: [],
+  },
+  settings() {
+    let saved = {}
+    try { saved = JSON.parse(DB.one("SELECT value FROM meta WHERE key = 'sys_settings'")?.value || '{}') } catch {}
+    return { ...this.SETTINGS_DEFAULT, ...saved, colors: { ...this.SETTINGS_DEFAULT.colors, ...(saved.colors || {}) } }
+  },
+  // «وقت إهمال الحركات بالدقائق»: a punch within N minutes of the last KEPT punch is ignored
+  dropRepeats(list, minutes) {
+    if (!minutes) return list
+    const out = []
+    let last = null
+    for (const ts of list) {
+      const t = new Date(ts.slice(0, 16).replace(' ', 'T')).getTime()
+      if (last == null || t - last >= minutes * 60000) { out.push(ts); last = t }
+    }
+    return out
+  },
   DAY_INDEX: (d) => (new Date(d + 'T00:00:00').getDay() + 1) % 7, // JS Sun=0 → our Sat=0
   toMin: (t) => (t ? +String(t).slice(0, 2) * 60 + +String(t).slice(3, 5) : null),
   hm: (m) => (m == null ? '' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`),
@@ -87,6 +112,7 @@ const Engine = {
   // rows: one per employee per date → {emp, date, day, status, kind, in, out, late, early, ot, worked, punches, missingOut}
   compute({ from, to, employeeIds = null, departmentId = null }) {
     const cfg = this.loadConfig()
+    const S = (cfg.settings = this.settings())
     const emps = DB.all(`SELECT e.*, d.name_ar AS dep, s.name_ar AS sec
       FROM employees e LEFT JOIN departments d ON d.id = e.department_id LEFT JOIN departments s ON s.id = e.section_id
       WHERE e.status = 'نشط' ${departmentId ? 'AND (e.department_id = ? OR e.section_id = ?)' : ''} ORDER BY CAST(e.code AS INTEGER), e.code`,
@@ -123,7 +149,7 @@ const Engine = {
       // punches indexed by date → minutes; a day sees its own punches plus the next
       // day's shifted by +24h (for a «شفت ممتد» / open shift running past midnight)
       const byDate = {}
-      for (const ts of punches[e.code] || []) (byDate[ts.slice(0, 10)] ||= []).push(this.toMin(ts.slice(11, 16)))
+      for (const ts of this.dropRepeats(punches[e.code] || [], +S.ignore_min || 0)) (byDate[ts.slice(0, 10)] ||= []).push(this.toMin(ts.slice(11, 16)))
       const poolFor = (date) => [...(byDate[date] || []), ...(byDate[nextOf[date]] || []).map((m) => m + 1440)]
       const empLeaves = leaves.filter((l) => l.employee_id === e.id)
       // a previous day's extended window "owns" its after-midnight punches
@@ -153,9 +179,12 @@ const Engine = {
         else if (sch.kind === 'none' || sch.kind === 'off' || weekly.has(`${hList}|${date}`)) {
           r = { ...base, kind: 'off', status: 'عطلة إسبوعية', in: own[0] ?? null, out: own.length > 1 ? own.at(-1) : null }
           if (own.length && e.ot_holidays) { r.in = own[0]; r.out = own.at(-1); r.worked = r.ot = Math.max(0, r.out - r.in) }
-        } else if (sch.kind === 'open') r = this.evalOpen(base, sch.open, all, e, date, today)
+        } else if (sch.kind === 'open') r = this.evalOpen(base, sch.open, all, e, date, today, S)
         else if (cfg.groups[gid]?.plain_rule) r = this.evalPlain({ ...base, punches: byDate[date] || [] }, sch.windows[0], date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
-        else r = this.evalWindows(base, sch.windows, all, e, date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
+        else r = this.evalWindows(base, sch.windows, all, e, date, today, perms.filter((p) => p.employee_id === e.id && p.date === date), S)
+        // «يتم احتساب اليوم غياب بعد تأخير / بعد انصراف مبكر»
+        if (r.kind === 'present' && ((S.absent_late_on && r.late > (+S.absent_late_min || 0)) || (S.absent_early_on && r.early > (+S.absent_early_min || 0))))
+          r = { ...r, kind: 'absent', status: 'غياب', absentByRule: true }
         consumedUntil = -Infinity
         if (sch.kind === 'windows' && !cfg.groups[gid]?.plain_rule && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
         if (sch.kind === 'open' && sch.open.extends_next_day) consumedUntil = this.toMin(sch.open.day_end) || 0
@@ -184,7 +213,13 @@ const Engine = {
     return { ...r, kind: 'present', status: late ? 'حضور متأخر' : 'حضور' }
   },
 
-  evalWindows(base, windows, pool, e, date, today, perms) {
+  evalWindows(base, windows, pool, e, date, today, perms, S = this.SETTINGS_DEFAULT) {
+    // «احتساب اول حركة دخول واخر حركة انصراف»: the day's periods act as one — the first
+    // punch is the in, the last the out, late/early against the first start / last end
+    if (S.first_last && windows.length > 1) {
+      const w0 = windows[0], wl = windows.at(-1)
+      windows = [{ ...w0, end_in: wl.end_out, start_out: w0.start_in, check_out: wl.check_out, end_out: wl.end_out, early_min: wl.early_min }]
+    }
     const left = [...pool].sort((a, b) => a - b)
     const take = (lo, hi, latest) => {
       const c = left.filter((m) => m >= lo && m <= hi)
@@ -220,15 +255,18 @@ const Engine = {
     r.early = r.windows.reduce((s, x) => s + x.early, 0)
     if (!anyIn) return { ...r, kind: anyWaiting ? 'waiting' : 'absent', status: anyWaiting ? 'في الانتظار' : 'غياب' }
     const w0 = windows[0], wl = windows.at(-1)
-    const before = e.ot_before && r.in != null ? Math.max(0, w0.check_in - r.in) : 0
-    const after = e.ot_after && r.out != null ? Math.max(0, r.out - wl.check_out) : 0
+    // «يحتسب الاضافي قبل/بعد الدوام N بالدقائق»: shorter early arrival / late stay → no overtime
+    let before = e.ot_before && r.in != null ? Math.max(0, w0.check_in - r.in) : 0
+    let after = e.ot_after && r.out != null ? Math.max(0, r.out - wl.check_out) : 0
+    if (before < (+S.ot_before_min || 0)) before = 0
+    if (after < (+S.ot_after_min || 0)) after = 0
     r.ot = Math.max(0, before + after - (e.ot_deduct_late ? r.late : 0))
     r.in = r.in % 1440
     if (r.out != null) r.out = r.out % 1440
     return { ...r, kind: 'present', status: r.late ? 'حضور متأخر' : 'حضور' }
   },
 
-  evalOpen(base, o, pool, e, date, today) {
+  evalOpen(base, o, pool, e, date, today, S = this.SETTINGS_DEFAULT) {
     const end = o.extends_next_day ? 1440 + (this.toMin(o.day_end) || 0) : 1440
     const ps = pool.filter((m) => m >= 0 && m < end).sort((a, b) => a - b)
     if (!ps.length) return { ...base, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }
@@ -238,7 +276,7 @@ const Engine = {
     else {
       r.worked = r.out - r.in
       if (r.worked < req) r.early = req - r.worked
-      if (e.ot_after && r.worked > req) r.ot = r.worked - req
+      if (e.ot_after && r.worked - req >= Math.max(1, +S.ot_after_min || 0)) r.ot = r.worked - req
     }
     r.in %= 1440
     if (r.out != null) r.out %= 1440
