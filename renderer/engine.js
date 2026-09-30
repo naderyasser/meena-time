@@ -183,7 +183,8 @@ const Engine = {
         else if (cfg.groups[gid]?.plain_rule) r = this.evalPlain({ ...base, punches: byDate[date] || [] }, sch.windows[0], date, today, perms.filter((p) => p.employee_id === e.id && p.date === date))
         else r = this.evalWindows(base, sch.windows, all, e, date, today, perms.filter((p) => p.employee_id === e.id && p.date === date), S)
         // «يتم احتساب اليوم غياب بعد تأخير / بعد انصراف مبكر»
-        if (r.kind === 'present' && ((S.absent_late_on && r.late > (+S.absent_late_min || 0)) || (S.absent_early_on && r.early > (+S.absent_early_min || 0))))
+        // (not for an open shift: its «تأخير» is hours still owed, not a late arrival)
+        if (r.kind === 'present' && sch.kind !== 'open' && ((S.absent_late_on && r.late > (+S.absent_late_min || 0)) || (S.absent_early_on && r.early > (+S.absent_early_min || 0))))
           r = { ...r, kind: 'absent', status: 'غياب', absentByRule: true }
         consumedUntil = -Infinity
         if (sch.kind === 'windows' && !cfg.groups[gid]?.plain_rule && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
@@ -274,17 +275,21 @@ const Engine = {
     const end = o.extends_next_day ? 1440 + (this.toMin(o.day_end) || 0) : 1440
     const ps = pool.filter((m) => m >= 0 && m < end).sort((a, b) => a - b)
     if (!ps.length) return { ...base, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }
-    const r = { ...base, in: ps[0], out: ps.length > 1 ? ps.at(-1) : null }
+    // punches pair up in order: 1st/2nd = first period, 3rd/4th = second, … (a later
+    // punch never moves an earlier check-out); repeats are already dropped by «وقت إهمال الحركات»
+    const pairs = []
+    for (let i = 0; i < ps.length; i += 2) pairs.push({ in: ps[i], out: ps[i + 1] ?? null })
     const req = o.required_min || 0
-    if (r.out == null) { r.missingOut = !e.no_punch_out && date < today }
-    else {
-      r.worked = r.out - r.in
-      if (r.worked < req) r.early = req - r.worked
-      if (e.ot_after && r.worked - req >= Math.max(1, +S.ot_after_min || 0)) r.ot = r.worked - req
-    }
+    const r = { ...base, in: ps[0], out: ps.length > 1 ? ps.at(-1) : null }
+    r.worked = pairs.reduce((s, p) => s + (p.out != null ? p.out - p.in : 0), 0)
+    // hours still owed count as تأخير from the first punch on, and shrink as periods are punched
+    if (r.worked < req) r.late = req - r.worked
+    if (e.ot_after && r.worked - req >= Math.max(1, +S.ot_after_min || 0)) r.ot = r.worked - req
+    if (pairs.at(-1).out == null) r.missingOut = !e.no_punch_out && date < today
+    r.windows = pairs.map((p) => ({ in: p.in % 1440, out: p.out != null ? p.out % 1440 : null }))
     r.in %= 1440
     if (r.out != null) r.out %= 1440
-    return { ...r, kind: 'present', status: 'حضور' }
+    return { ...r, kind: 'present', status: r.late ? 'حضور متأخر' : 'حضور' }
   },
 
   // a day is posted per employee (Apex posts «أرقام الموظفين» من/إلى); without a code: posted for anyone

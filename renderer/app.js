@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '1.2.1'
+const VERSION = '1.2.2'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -157,7 +157,9 @@ async function login() {
       { label: 'موافق', icon: 'ok', onClick: async (d) => {
         const user = d.root.querySelector('#user').value.trim()
         const pass = d.root.querySelector('#pass').value
+        // «admin» (any case) also signs in as the built-in administrator «أ», as in Apex Time
         const u = DB.one('SELECT * FROM users WHERE username = ?', [user])
+          || (user.toLowerCase() === 'admin' ? DB.one("SELECT * FROM users WHERE username = 'أ'") : null)
         if (!u || !(await checkPassword(u.password, pass))) {
           DB.audit('محاولة دخول فاشلة', user)
           return d.error('اسم المستخدم أو كلمة المرور غير صحيحة')

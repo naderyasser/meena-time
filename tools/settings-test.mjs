@@ -78,6 +78,37 @@ await setS({ first_last: 1 })
 r = await row(D2)
 check('first-in-last-out: in 08:00 out 17:00, no early', r.in === '08:00' && r.out === '17:00' && r.early === 0 && r.late === 0, JSON.stringify(r))
 
+// open shift (8 h required): punches pair into periods; hours still owed show as تأخير
+await p.evaluate(() => {
+  DB.run("INSERT INTO shift_groups (id, name_ar, open_shift) VALUES (2, 'مفتوح', 1)")
+  for (let d = 0; d < 7; d++) DB.run(`INSERT INTO shift_windows (group_id, calendar, slot, window_no, is_off, required_min) VALUES (2, 'Y', ${d}, 1, 0, 480)`)
+  DB.run("INSERT INTO employees (id, code, name_ar, shift_group_id, hire_date, ot_after) VALUES (2, '2', 'موظف مفتوح', 2, '2026-01-01', 1)")
+  DB.run("INSERT INTO employee_shifts (employee_id, group_id, from_date) VALUES (2, 2, '2026-01-01')")
+})
+const openRow = (date, times) => p.evaluate(({ date, times }) => {
+  DB.run('DELETE FROM punches'); for (const t of times) DB.run("INSERT INTO punches (emp_code, ts, source) VALUES ('2', ?, 'device')", [`${date} ${t}:00`])
+  const r = Engine.compute({ from: date, to: date }).find((x) => x.emp.code === '2')
+  return { kind: r.kind, status: r.status, periods: (r.windows || []).map((w) => `${Engine.hm(w.in)}-${w.out == null ? '' : Engine.hm(w.out)}`).join(' '), worked: r.worked, late: r.late || 0, ot: r.ot || 0, missing: !!r.missingOut }
+}, { date, times })
+await setS({ ignore_min: 15 })
+r = await openRow(D0, ['08:00', '12:00'])
+check('open: first period only 08–12 → 4 h late still owed', r.periods === '08:00-12:00' && r.worked === 240 && r.late === 240, JSON.stringify(r))
+r = await openRow(D0, ['08:00', '12:00', '16:00'])
+check('open: 3rd punch opens period 2, period 1 out stays 12:00', r.periods === '08:00-12:00 16:00-' && r.worked === 240 && r.missing, JSON.stringify(r))
+r = await openRow(D0, ['08:00', '12:00', '16:00', '20:00'])
+check('open: 4 punches = two periods, 8 h worked, no late', r.periods === '08:00-12:00 16:00-20:00' && r.worked === 480 && r.late === 0 && r.status === 'حضور', JSON.stringify(r))
+r = await openRow(D0, ['08:00', '12:00', '15:00', '21:00'])
+check('open: 10 h over two periods → 2 h overtime', r.worked === 600 && r.ot === 120 && r.late === 0, JSON.stringify(r))
+r = await openRow(D0, ['08:00', '08:05', '12:00', '12:10'])
+check('open + ignore 15 min: repeats dropped → one period 08–12', r.periods === '08:00-12:00' && r.late === 240, JSON.stringify(r))
+await setS({ ignore_min: 30, absent_late_on: 1, absent_late_min: 60 })
+r = await openRow(D0, ['08:00', '12:00', '16:00', '20:00'])
+check('open + ignore 30 min: all four punches kept', r.periods === '08:00-12:00 16:00-20:00' && r.worked === 480, JSON.stringify(r))
+r = await openRow(D0, ['08:00', '12:00'])
+check('open: owed hours never trigger «غياب بعد تأخير»', r.kind === 'present' && r.late === 240, JSON.stringify(r))
+await setS({})
+await p.evaluate(() => { DB.run('DELETE FROM punches'); DB.run('DELETE FROM employee_shifts WHERE employee_id = 2'); DB.run('DELETE FROM employees WHERE id = 2') })
+
 // the settings window: open, fill, save, reopen
 await p.evaluate(() => { document.querySelectorAll('.dlg-backdrop').forEach((b) => b.remove()); Session.userId = 1; Session.username = 'test'; Session.admin = true; buildMenu(); renderHome() })
 await p.evaluate(() => openSystemSettings())
