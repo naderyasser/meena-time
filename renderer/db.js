@@ -139,6 +139,29 @@ const DB = {
     }
     this.migrateV2()
     this.migrateV3()
+    this.migrateV4()
+  },
+
+  // 1.2 — Apex Time's permission model: named roles («صلاحيات المستخدمين») with
+  // عرض/إضافة/حذف/تعديل/طباعة per screen; each user gets one role. Existing users keep
+  // exactly what they had: admins → the built-in «مدير النظام», others → a role of their own.
+  migrateV4() {
+    const addCol = (t, c, def) => { if (!this.all(`PRAGMA table_info(${t})`).some((x) => x.name === c)) this.db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`) }
+    this.db.run(`CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name_ar TEXT NOT NULL, name_en TEXT DEFAULT '',
+      perms TEXT DEFAULT '{}', builtin INTEGER DEFAULT 0)`)
+    addCol('users', 'role_id', 'INTEGER')
+    addCol('users', 'full_name', "TEXT DEFAULT ''")
+    if (!this.one('SELECT 1 FROM roles WHERE id = 1')) this.db.run("INSERT INTO roles (id, name_ar, name_en, builtin) VALUES (1, 'مدير النظام', 'Administrator', 1)")
+    for (const u of this.all('SELECT * FROM users WHERE role_id IS NULL')) {
+      let role = 1
+      if (!u.is_admin) {
+        const all = { view: 1, add: 1, del: 1, edit: 1, print: 1 }
+        const perms = Object.fromEntries(JSON.parse(u.permissions || '[]').map((k) => [k, all]))
+        this.db.run('INSERT INTO roles (name_ar, name_en, perms) VALUES (?, ?, ?)', [`صلاحيات ${u.username}`, u.username, JSON.stringify(perms)])
+        role = this.one('SELECT last_insert_rowid() AS id').id
+      }
+      this.db.run('UPDATE users SET role_id = ?, full_name = COALESCE(NULLIF(full_name, \'\'), username) WHERE id = ?', [role, u.id])
+    }
   },
 
   // v2 (0.2.0): up to 4 «ورديات» per day + «شفت ممتد», open shifts, rotating

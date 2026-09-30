@@ -119,6 +119,20 @@ const due = await p.evaluate(async () => {
 })
 check('scheduled time due → runs exactly once', due === 1, `runs=${due}`)
 
+// upgrade from ≤1.1.5 (per-user «<menu>/<item>» lists) → roles, nobody gains or loses access
+const mig = await p.evaluate(() => {
+  DB.run('DROP TABLE roles'); DB.run('UPDATE users SET role_id = NULL')
+  DB.run("INSERT INTO users (username, password, is_admin, permissions) VALUES ('old', 'x', 0, ?)", [JSON.stringify(['البيانات الأساسية/الموظفين', 'التقارير/حالة اليوم'])])
+  DB.migrateV4()
+  const u = DB.all('SELECT u.username, u.role_id, r.name_ar, r.builtin, r.perms FROM users u JOIN roles r ON r.id = u.role_id ORDER BY u.id')
+  DB.migrateV4() // idempotent
+  return { u, roles: DB.one('SELECT COUNT(*) n FROM roles').n }
+})
+const old = mig.u.find((x) => x.username === 'old'), admin = mig.u.find((x) => x.username !== 'old')
+check('migration: admin → built-in «مدير النظام»', admin?.builtin === 1 && admin.role_id === 1, JSON.stringify(admin))
+check('migration: restricted user → own role with exactly its 2 screens', old && !old.builtin && Object.keys(JSON.parse(old.perms)).sort().join() === 'البيانات الأساسية/الموظفين,التقارير/حالة اليوم', JSON.stringify(old))
+check('migration: running twice creates nothing new', mig.roles === 2, `roles=${mig.roles}`)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 await app.close()
 fs.rmSync(UD, { recursive: true, force: true })

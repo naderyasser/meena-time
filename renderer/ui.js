@@ -1,3 +1,25 @@
+// Apex Time permissions: a screen key is "<menu>/<item>"; the user's role grants per screen
+// view (menu entry) · add · del · edit · print. A window opened from a menu item remembers
+// its key and disables the toolbar buttons the role doesn't allow.
+const Perm = {
+  scope: null,
+  ACTIONS: [['view', 'عرض'], ['add', 'إضافة'], ['del', 'حذف'], ['edit', 'تعديل'], ['print', 'طباعة']],
+  BUTTONS: { new: ['add'], add: ['add'], save: ['add', 'edit'], del: ['del'], edit: ['edit'], print: ['print'], pdf: ['print'], excel: ['print'] },
+  can(key, action = 'view') {
+    if (!key || window.Session?.admin) return true
+    return !!Session.rolePerms?.[key]?.[action]
+  },
+  // run a menu action with its screen key in scope (windows opened by it inherit the key)
+  run(key, fn) { this.scope = key; try { return fn() } finally { this.scope = null } },
+  apply(root, key) {
+    if (!key || Session?.admin) return
+    for (const b of root.querySelectorAll('.toolbar button[data-key]')) {
+      const need = this.BUTTONS[b.dataset.key]
+      if (need && !need.some((a) => this.can(key, a))) { b.disabled = true; b.title = 'غير مصرح لك بهذا الإجراء' }
+    }
+  },
+}
+
 // Tiny window manager + dialogs reproducing Apex Time's MDI desktop.
 const UI = {
   wins: new Map(),
@@ -26,10 +48,12 @@ const UI = {
     win.querySelector('.x').onclick = () => this.close(id)
     win.addEventListener('mousedown', () => this.focus(id))
     this.drag(win, win.querySelector('.cap'))
-    this.wins.set(id, { win, title })
+    const permKey = Perm.scope
+    this.wins.set(id, { win, title, permKey })
     this.focus(id)
     this.renderStrip()
-    render(win.querySelector('.body'), { close: () => this.close(id) })
+    render(win.querySelector('.body'), { close: () => this.close(id), permKey })
+    Perm.apply(win, permKey)
   },
   focus(id) {
     const w = this.wins.get(id)
@@ -188,6 +212,10 @@ const UI = {
     this.selPop = null
   },
 
+  confirm(text, head = 'تأكيد') {
+    return this.dialog({ head, bodyHtml: `<div style="padding:4px 2px">${this.esc(text)}</div>`, width: 380,
+      buttons: [{ label: 'نعم', icon: 'ok', onClick: (d) => d.close(true) }, { label: 'لا', icon: 'cancel', onClick: (d) => d.close(false) }] })
+  },
   message(text) {
     return this.dialog({ head: 'تنبيه', bodyHtml: `<div style="padding:4px 2px">${this.esc(text)}</div>`, width: 360,
       buttons: [{ label: 'موافق', icon: 'ok', onClick: (d) => d.close(true) }] })

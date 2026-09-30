@@ -29,8 +29,9 @@ await app.evaluate(({ dialog }, ud) => { dialog.showSaveDialog = async () => ({ 
 
 let shot = 0
 const snap = async (name) => p.screenshot({ path: `${SHOTS}/${String(++shot).padStart(2, '0')}-${name}.png` })
-const menu = async (m, item) => {
+const menu = async (m, item, sub) => {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click()
+  if (sub) await p.locator('.menu.open .drop .has-sub', { hasText: sub }).hover()
   await p.locator('.menu.open .drop button', { hasText: item }).first().click()
   await p.waitForTimeout(250)
 }
@@ -64,7 +65,7 @@ check('caption: version matches package.json', (await p.locator('#caption-text')
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 16], ['الإعدادات', 5], ['أدوات', 5], ['مساعدة', 2]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 16], ['الإعدادات', 7], ['أدوات', 5], ['مساعدة', 2]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)
@@ -352,16 +353,22 @@ await menu('الإجراءات', 'الغاء جميع بيانات الموظف'
 await p.locator('.dlg').getByRole('button', { name: 'حذف' }).click(); await p.waitForTimeout(150); await yes(); check('purge employee: done', /تم حذف جميع/.test(await okMsg()))
 
 // ── 8. users, system, backup, register ────────────────────
-await menu('الإعدادات', 'اعدادات المستخدمين'); w = win('اعدادات المستخدمين'); await snap('users')
-await btn(w, 'مستخدم جديد').click(); await p.locator('#u-name').fill('hr'); await p.locator('#u-pw').fill('12'); await p.locator('#u-pw2').fill('12')
-await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(150); check('users: short password rejected', /4 أحرف/.test(await p.locator('.dlg .err').textContent()))
-await p.locator('#u-pw').fill('1234'); await p.locator('#u-pw2').fill('1235'); await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(150)
-check('users: mismatch rejected', /غير متطابقتين/.test(await p.locator('.dlg .err').textContent()))
-await p.locator('#u-pw2').fill('1234'); await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(300)
-check('users: user added', (await w.locator('tbody tr').count()) === 2)
-await w.locator('tbody tr').first().click(); await btn(w, 'حذف').click(); await p.waitForTimeout(150); check('users: last admin cannot be deleted', /آخر مدير/.test(await okMsg()))
-await w.locator('tbody tr').first().click(); await btn(w, 'تغيير كلمة المرور').click(); await p.locator('#u-pw').fill('admin1'); await p.locator('#u-pw2').fill('admin1')
-await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(300); await closeWin(w)
+await menu('الإعدادات', 'صلاحيات المستخدمين', 'اعدادات المستخدمين'); w = win('صلاحيات المستخدمين'); await snap('roles')
+check('roles: built-in «مدير النظام» locked with every box ticked', (await w.locator('.screens input[data-a]:not(:checked)').count()) === 0 && (await w.locator('.screens input[data-a]:not([disabled])').count()) === 0)
+await btn(w, 'جديد').click(); await btn(w, 'حفظ').click(); check('roles: name required', /مطلوب/.test(await okMsg()))
+await w.locator('#ro-ar').fill('موارد بشرية'); await w.locator('#ro-en').fill('HR'); await btn(w, 'حفظ').click(); await okMsg()
+check('roles: role added', (await w.locator('#ro-list tr').count()) === 2)
+await closeWin(w)
+await menu('الإعدادات', 'إدارة المستخدمين', 'اعدادات المستخدمين'); w = win('إدارة المستخدمين'); await snap('users')
+await btn(w, 'جديد').click(); await w.locator('#us-login').fill('hr'); await w.locator('#us-name').fill('موظف الموارد'); await w.locator('#us-role').selectOption({ label: 'موارد بشرية' })
+await w.locator('#us-pw').fill('12'); await w.locator('#us-pw2').fill('12'); await btn(w, 'حفظ').click(); check('users: short password rejected', /4 أحرف/.test(await okMsg()))
+await w.locator('#us-pw').fill('1234'); await w.locator('#us-pw2').fill('1235'); await btn(w, 'حفظ').click(); check('users: mismatch rejected', /غير متطابقتين/.test(await okMsg()))
+await w.locator('#us-pw2').fill('1234'); await btn(w, 'حفظ').click(); await okMsg()
+check('users: user added with its role', (await w.locator('#us-list tr').count()) === 2 && /موارد بشرية/.test(await w.locator('#us-list').textContent()))
+check('users: passwords never shown', !/1234/.test(await w.locator('#us-list').textContent()))
+await w.locator('#us-list tr').first().click(); await btn(w, 'حذف').click(); await p.waitForTimeout(150); check('users: current / last admin cannot be deleted', /آخر مدير|المستخدم الحالي/.test(await okMsg()))
+await w.locator('#us-list tr').first().click(); await w.locator('#us-role').selectOption({ label: 'موارد بشرية' }); await btn(w, 'حفظ').click(); check('users: last admin cannot lose the admin role', /آخر مدير/.test(await okMsg()))
+await w.locator('#us-list tr').first().click(); await w.locator('#us-pw').fill('admin1'); await w.locator('#us-pw2').fill('admin1'); await btn(w, 'حفظ').click(); await okMsg(); await closeWin(w)
 await menu('الإعدادات', 'اعدادات النظام'); w = win('إعدادات النظام'); check('system settings: Apex window with the 7 rules', (await w.locator('.sys-set .rules .row').count()) === 7 && (await w.locator('#s-ignore').inputValue()) === '0'); await snap('system'); await closeWin(w)
 await menu('أدوات', 'نسخة احتياطية'); check('backup: file written', /تم حفظ/.test(await okMsg()) && fs.existsSync(`${UD}/manual-backup.sqlite`))
 check('backup: automatic daily backup exists', fs.readdirSync(`${UD}/backups`).length >= 0)
@@ -546,10 +553,11 @@ const pen = await rw.locator('.report-out').textContent()
 check('penalties report: 1st late → إنذار, 2nd late → 30 min, absence → 1 day', /إنذار/.test(pen) && /خصم دقائق/.test(pen) && /خصم أيام/.test(pen), pen.slice(0, 200))
 await snap('v2-penalties'); await closeWin(rw)
 // permissions: user hr may only open «الموظفين»
-await menu('الإعدادات', 'اعدادات المستخدمين'); w = win('اعدادات المستخدمين')
-await w.locator('tbody tr', { hasText: 'hr' }).click(); await btn(w, 'الصلاحيات').click(); await p.waitForTimeout(200)
-await p.locator('.perm-grid input[value="البيانات الأساسية/الموظفين"]').check(); await snap('v2-permissions')
-await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250); await closeWin(w)
+await menu('الإعدادات', 'صلاحيات المستخدمين', 'اعدادات المستخدمين'); w = win('صلاحيات المستخدمين')
+await w.locator('#ro-list tr', { hasText: 'موارد بشرية' }).click()
+await w.locator('.screens tr[data-key="البيانات الأساسية/الموظفين"] input[data-a=print]').check(); await snap('v2-permissions')
+check('roles: ticking «طباعة» ticks «عرض»', await w.locator('.screens tr[data-key="البيانات الأساسية/الموظفين"] input[data-a=view]').isChecked())
+await btn(w, 'حفظ').click(); await okMsg(); await closeWin(w)
 // audit log
 await menu('أدوات', 'سجل الحركات'); w = win('سجل الحركات'); const audit = await w.locator('tbody').textContent()
 check('audit log: records logins, posting, employee edits, permissions', /تسجيل دخول/.test(audit) && /ترحيل الحركات/.test(audit) && /تعديل موظف/.test(audit) && /تعديل صلاحيات/.test(audit))
@@ -586,6 +594,11 @@ await p2.locator('#user').fill('hr'); await p2.locator('#pass').fill('1234'); aw
 check('permissions: restricted user sees only permitted menus', (await p2.locator('#menubar .menu').count()) === 3 && (await p2.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).count()) === 1)
 await p2.locator('#menubar .menu > button', { hasText: 'البيانات الأساسية' }).click(); await p2.waitForTimeout(150)
 check('permissions: only «الموظفين» inside', (await p2.locator('.menu.open .drop button').count()) === 1)
+await p2.locator('.menu.open .drop button', { hasText: 'الموظفين' }).click(); await p2.waitForTimeout(300)
+{ const ew = p2.locator('.win', { has: p2.locator('.cap', { hasText: 'الموظفين' }) }).last()
+  const dis = async (k) => ew.locator(`.toolbar button[data-key=${k}]`).first().isDisabled()
+  check('permissions: view+print only → جديد / حذف disabled, طباعة enabled', (await dis('new')) && (await dis('del')) && !(await dis('print')), `new=${await dis('new')} del=${await dis('del')} print=${await dis('print')}`)
+  await ew.locator('.toolbar button[data-key=close]').click() }
 await p2.locator('body').click({ position: { x: 5, y: 700 } })
 await p2.locator('.tile', { hasText: 'التجهيز' }).click(); await p2.waitForTimeout(150)
 check('permissions: home tile blocked without permission', /ليس لديك صلاحية/.test(await p2.locator('.dlg-backdrop .body').last().textContent()))

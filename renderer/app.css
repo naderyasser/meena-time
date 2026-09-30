@@ -304,3 +304,24 @@ table.rep.month-grid td.nm { white-space: nowrap; }
 table.rep.month-grid td.sig { width: 70px; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; margin: 6px 0; }
 .legend i { display: inline-block; width: 14px; height: 12px; border: 1px solid #555; margin-left: 4px; vertical-align: middle; }
+/* sub-menu (Apex «اعدادات المستخدمين ▸») */
+#menubar .drop .sub { position: relative; }
+#menubar .drop .sub > .has-sub i { margin-right: auto; font-style: normal; font-size: 10px; }
+#menubar .drop .sub-drop { display: none; position: absolute; top: 0; right: 100%; }
+#menubar .drop .sub:hover > .sub-drop { display: block; }
+
+/* «صلاحيات المستخدمين» / «إدارة المستخدمين» (Apex: blue bands, info box + list, screen grid) */
+.roles, .users-apex { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 6px 8px; gap: 6px; }
+.roles .band, .users-apex .band { background: #1a86e0; color: #fff; text-align: center; font-weight: bold; padding: 3px; }
+.roles .top { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.roles .top .info { border: 1px solid #f0a830; border-radius: 6px; margin: 0; }
+.roles .top .info legend { color: #0b3fa8; font-weight: bold; }
+.roles .top .list .grid-wrap { height: 110px; }
+.roles .screens { flex: 1; min-height: 160px; }
+.roles .perm-btns { display: flex; gap: 8px; justify-content: center; }
+.roles .perm-btns button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; }
+.users-apex .u-form { grid-template-columns: 110px 1fr 120px 1fr; gap: 6px 10px; padding: 4px 8px; }
+.users-apex .grid-wrap { flex: 1; min-height: 120px; }
+.win .fields { display: grid; grid-template-columns: 110px 1fr; gap: 6px 8px; align-items: center; }
+.win .fields > label { color: #0b3fa8; font-weight: bold; }
+.users-apex .fields.u-form { grid-template-columns: 110px 1fr 130px 1fr; }

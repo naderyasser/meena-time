@@ -62,73 +62,6 @@ function openCompany() {
   })
 }
 
-function openUsers() {
-  UI.openWindow('users', 'اعدادات المستخدمين', { width: 520, height: 360 }, (body, win) => {
-    let current = null
-    const bar = UI.toolbar([
-      { key: 'new', label: 'مستخدم جديد', icon: 'new', onClick: () => edit(null) },
-      { key: 'pw', label: 'تغيير كلمة المرور', icon: 'register', onClick: () => (current ? edit(current) : UI.message('اختر مستخدماً')) },
-      { key: 'perm', label: 'الصلاحيات', icon: 'm_set', onClick: () => {
-        if (!current) return UI.message('اختر مستخدماً')
-        if (current.is_admin) return UI.message('مدير النظام له كل الصلاحيات')
-        editPermissions(current).then(load)
-      } },
-      { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
-      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
-    ])
-    const wrap = UI.el('<div class="grid-wrap"><table class="grid"><thead><tr><th style="width:16px"></th><th class="sorted">اسم المستخدم</th><th style="width:90px">مدير النظام</th></tr></thead><tbody></tbody></table></div>')
-    body.append(bar, wrap)
-    const load = () => {
-      const tb = wrap.querySelector('tbody')
-      tb.innerHTML = ''
-      current = null
-      for (const u of DB.all('SELECT * FROM users ORDER BY id')) {
-        const tr = UI.el(`<tr><td class="sel"></td><td>${UI.esc(u.username)}</td><td class="center">${u.is_admin ? '✔' : ''}</td></tr>`)
-        tr.onmousedown = () => { tb.querySelectorAll('tr').forEach((x) => x.classList.remove('current')); tr.classList.add('current'); current = u }
-        tb.appendChild(tr)
-      }
-    }
-    async function edit(u) {
-      await UI.dialog({
-        head: u ? `كلمة مرور ${u.username}` : 'مستخدم جديد', width: 420,
-        bodyHtml: `<div class="fields" style="grid-template-columns:100px 1fr">
-          ${u ? '' : '<label>اسم المستخدم</label><input type="text" id="u-name"><label>مدير النظام</label><input type="checkbox" id="u-admin" style="justify-self:start">'}
-          <label>كلمة المرور</label><input type="password" id="u-pw"><label>تأكيد</label><input type="password" id="u-pw2"></div>`,
-        buttons: [
-          { label: 'حفظ', icon: 'save', onClick: async (d) => {
-            const pw = d.root.querySelector('#u-pw').value
-            if (pw !== d.root.querySelector('#u-pw2').value) return d.error('كلمتا المرور غير متطابقتين')
-            if (pw.length < 4) return d.error('كلمة المرور 4 أحرف على الأقل')
-            const h = await hashPassword(pw)
-            try {
-              if (u) DB.run('UPDATE users SET password = ? WHERE id = ?', [h, u.id])
-              else {
-                const name = d.root.querySelector('#u-name').value.trim()
-                if (!name) return d.error('اسم المستخدم مطلوب')
-                DB.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)', [name, h, d.root.querySelector('#u-admin').checked ? 1 : 0])
-              }
-            } catch { return d.error('اسم المستخدم موجود') }
-            await DB.flush()
-            d.close(true)
-            load()
-          } },
-          { label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close(false) },
-        ],
-      })
-    }
-    async function remove() {
-      if (!current) return UI.message('اختر مستخدماً')
-      if (current.is_admin && DB.one('SELECT COUNT(*) n FROM users WHERE is_admin = 1').n === 1) return UI.message('لا يمكن حذف آخر مدير للنظام')
-      if (current.id === Session.userId) return UI.message('لا يمكن حذف المستخدم الحالي')
-      if (!(await yesNo('تأكيد', `حذف المستخدم «${UI.esc(current.username)}»؟`))) return
-      DB.run('DELETE FROM users WHERE id = ?', [current.id])
-      await DB.flush()
-      load()
-    }
-    load()
-  })
-}
-
 // «إعدادات النظام» — Apex Time's system settings screen: attendance rules (engine.js
 // SETTINGS_DEFAULT), the «بيان تأخير الموظفين» report colours, and the daily automatic
 // read-and-post schedule. Saved as one JSON row (meta sys_settings).
@@ -281,33 +214,218 @@ function openPenaltyRules() {
 }
 
 // Screens a non-admin user may be granted (menu item labels)
-const PERMISSION_ITEMS = () => MENUS.filter((m) => !['مساعدة'].includes(m.label))
-  .map((m) => [m.label, m.items.filter((it) => it !== '-').map(([l]) => l).filter((l) => !['اعدادات المستخدمين', 'تسجيل المنتج', 'تسجيل خروج', 'استرجاع نسخة احتياطية'].includes(l))])
+// ── Apex «صلاحيات المستخدمين» + «إدارة المستخدمين» ──────────────────────────────
+// Screens = every menu item (sub-menu items included), keyed "<menu>/<item>", numbered
+// like Apex (300 … per menu). English names as Apex shows them.
+const SCREEN_EN = {
+  'قوائم البرنامج': 'Setup programs', 'الإدارات والأقسام': 'Branches and Departments', 'المشاريع': 'Projects', 'مواعيد العمل': 'Shifts',
+  'الموظفين': 'Employees', 'مجموعات الموظفين': 'Groups', 'تعريف الأجهزة': 'Machines', 'العطلات الرسمية': 'Holidays', 'مواعيد رمضان': 'Ramadan timings',
+  'قراءة الحركات (شبكة - ملف)': 'Read machines', 'الغاء الحركات المسحوبة خلال فترة': 'Cancel read transactions', 'عرض الحركات': 'Show transactions',
+  'إضافة وتعديل الحركات لموظف': 'Add transactions', 'الغاء الحركات المعدلة يدويا': 'Cancel manual transactions', 'إضافة إجازات لموظف': 'Employee vacations',
+  'إضافة أذونات لموظف': 'Employee permissions', 'ترحيل الحركات': 'Post transactions', 'الغاء ترحيل الحركات': 'Unpost transactions',
+  'الغاء جميع بيانات الموظف بالنظام': 'Delete employee data', 'بيانات المؤسسة': 'Company information', 'لائحة الجزاءات': 'Penalty rules',
+  'صلاحيات المستخدمين': 'User permissions', 'إدارة المستخدمين': 'Users', 'اعدادات النظام': 'System settings', 'الربط بالموقع': 'Web link',
+  'نسخة احتياطية': 'Backup', 'استرجاع نسخة احتياطية': 'Restore backup', 'سجل الحركات': 'Audit log',
+}
+const HIDDEN_SCREENS = ['تسجيل المنتج', 'تسجيل خروج']
+function screenList() {
+  const out = []
+  MENUS.filter((m) => m.label !== 'مساعدة').forEach((m, mi) => {
+    let n = 0
+    const add = (label) => { if (!HIDDEN_SCREENS.includes(label)) out.push({ key: `${m.label}/${label}`, code: (mi + 3) * 100 + n++, ar: label, en: SCREEN_EN[label] || '' }) }
+    for (const it of m.items) {
+      if (it === '-') continue
+      if (Array.isArray(it[1])) it[1].forEach(([l]) => add(l)); else add(it[0])
+    }
+  })
+  return out
+}
+let permClipboard = null
 
-async function editPermissions(u) {
-  const current = new Set(JSON.parse(u.permissions || '[]'))
-  const groups = PERMISSION_ITEMS()
-  await UI.dialog({
-    head: `صلاحيات المستخدم ${u.username}`, width: 720,
-    bodyHtml: `<div class="perm-grid">${groups.map(([m, items]) => `<fieldset><legend><label><input type="checkbox" class="all"> ${m}</label></legend>
-      ${items.map((it) => `<label class="chk"><input type="checkbox" value="${UI.esc(`${m}/${it}`)}" ${current.has(`${m}/${it}`) ? 'checked' : ''}> ${UI.esc(it)}</label>`).join('')}</fieldset>`).join('')}</div>`,
-    buttons: [
-      { label: 'حفظ', icon: 'save', onClick: async (d) => {
-        const list = [...d.root.querySelectorAll('.perm-grid input[value]:checked')].map((i) => i.value)
-        DB.run('UPDATE users SET permissions = ? WHERE id = ?', [JSON.stringify(list), u.id])
-        DB.audit('تعديل صلاحيات', u.username, `${list.length} شاشة`)
-        await DB.flush()
-        d.close(true)
-      } },
-      { label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close(false) },
-    ],
+function openRoles() {
+  UI.openWindow('roles', 'صلاحيات المستخدمين', { width: 1000, height: 600 }, (body, win) => {
+    const screens = screenList()
+    let current = null // role row being edited (null = new)
+    const bar = UI.toolbar([
+      { key: 'new', label: 'جديد', icon: 'new', onClick: () => pick(null) },
+      { key: 'save', label: 'حفظ', icon: 'save', onClick: save },
+      { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const view = UI.el(`<div class="roles">
+      <div class="top">
+        <fieldset class="info"><legend>صلاحيات الاستخدام</legend><div class="fields" style="grid-template-columns:110px 1fr">
+          <label>رقم الصلاحية</label><input type="text" id="ro-id" readonly>
+          <label>الاسم العربي</label><input type="text" id="ro-ar">
+          <label>الاسم الإنجليزي</label><input type="text" id="ro-en" dir="ltr"></div></fieldset>
+        <div class="list"><div class="band">الصلاحيات</div><div class="grid-wrap"><table class="grid"><thead><tr><th style="width:16px"></th><th style="width:90px">رقم الصلاحية</th><th class="sorted">الاسم العربي</th><th>الاسم الانجليزي</th></tr></thead><tbody id="ro-list"></tbody></table></div></div>
+      </div>
+      <div class="band">شاشات البرنامج</div>
+      <div class="grid-wrap screens"><table class="grid"><thead><tr><th style="width:60px" class="sorted">الكود</th><th>اسم الشاشة</th><th>اسم الشاشة إنجليزي</th>${Perm.ACTIONS.map(([, l]) => `<th style="width:56px">${l}</th>`).join('')}</tr></thead>
+        <tbody>${screens.map((sc) => `<tr data-key="${UI.esc(sc.key)}"><td class="center">${sc.code}</td><td>${UI.esc(sc.ar)}</td><td dir="ltr">${UI.esc(sc.en)}</td>${Perm.ACTIONS.map(([a]) => `<td class="center"><input type="checkbox" data-a="${a}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="perm-btns"><button id="ro-copy">${ICONS.new || ''}<span>نسخ الصلاحيات</span></button><button id="ro-paste"><span>لصق الصلاحيات</span></button>
+        <button id="ro-all"><span>تحديد الكل</span></button><button id="ro-none"><span>إلغاء الكل</span></button></div>
+    </div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    const boxes = () => [...view.querySelectorAll('.screens input[data-a]')]
+    const readPerms = () => {
+      const perms = {}
+      for (const tr of view.querySelectorAll('.screens tr[data-key]')) {
+        const p = Object.fromEntries([...tr.querySelectorAll('input[data-a]')].filter((i) => i.checked).map((i) => [i.dataset.a, 1]))
+        if (Object.keys(p).length) perms[tr.dataset.key] = { ...p, view: 1 } // any action implies seeing the screen
+      }
+      return perms
+    }
+    const writePerms = (perms, locked) => {
+      for (const tr of view.querySelectorAll('.screens tr[data-key]')) {
+        for (const i of tr.querySelectorAll('input[data-a]')) { i.checked = locked || !!perms?.[tr.dataset.key]?.[i.dataset.a]; i.disabled = locked }
+      }
+    }
+    // ticking any action ticks «عرض»; unticking «عرض» clears the row
+    view.querySelector('.screens').addEventListener('change', (e) => {
+      const i = e.target, tr = i.closest('tr')
+      if (i.dataset.a === 'view' && !i.checked) tr.querySelectorAll('input[data-a]').forEach((x) => (x.checked = false))
+      else if (i.checked) tr.querySelector('input[data-a=view]').checked = true
+    })
+    function load(selectId) {
+      const tb = $('#ro-list')
+      tb.innerHTML = ''
+      for (const r of DB.all('SELECT * FROM roles ORDER BY id')) {
+        const tr = UI.el(`<tr data-id="${r.id}"><td class="sel"></td><td class="center">${r.id}</td><td>${UI.esc(r.name_ar)}</td><td dir="ltr">${UI.esc(r.name_en)}</td></tr>`)
+        tr.onmousedown = () => pick(r)
+        tb.appendChild(tr)
+      }
+      const sel = selectId ? DB.one('SELECT * FROM roles WHERE id = ?', [selectId]) : DB.one('SELECT * FROM roles ORDER BY id LIMIT 1')
+      pick(sel)
+    }
+    function pick(r) {
+      current = r
+      view.querySelectorAll('#ro-list tr').forEach((tr) => tr.classList.toggle('current', !!r && +tr.dataset.id === r.id))
+      $('#ro-id').value = r?.id ?? ''
+      $('#ro-ar').value = r?.name_ar ?? ''
+      $('#ro-en').value = r?.name_en ?? ''
+      const locked = !!r?.builtin
+      $('#ro-ar').readOnly = $('#ro-en').readOnly = locked
+      writePerms(r ? JSON.parse(r.perms || '{}') : {}, locked)
+      ;['#ro-paste', '#ro-all', '#ro-none'].forEach((b) => { $(b).disabled = locked })
+      if (!r) $('#ro-ar').focus()
+    }
+    $('#ro-copy').onclick = () => { permClipboard = current?.builtin ? Object.fromEntries(screenList().map((s) => [s.key, Object.fromEntries(Perm.ACTIONS.map(([a]) => [a, 1]))])) : readPerms(); UI.message('تم نسخ الصلاحيات') }
+    $('#ro-paste').onclick = () => { if (!permClipboard) return UI.message('انسخ صلاحيات أولاً'); writePerms(permClipboard, false) }
+    $('#ro-all').onclick = () => boxes().forEach((i) => { i.checked = true })
+    $('#ro-none').onclick = () => boxes().forEach((i) => { i.checked = false })
+    async function save() {
+      if (current?.builtin) return UI.message('«مدير النظام» له كل الصلاحيات ولا يمكن تعديله')
+      const ar = $('#ro-ar').value.trim(), en = $('#ro-en').value.trim()
+      if (!ar) return UI.message('الاسم العربي للصلاحية مطلوب')
+      if (DB.one('SELECT 1 FROM roles WHERE name_ar = ? AND id != ?', [ar, current?.id || 0])) return UI.message('يوجد صلاحية بنفس الاسم')
+      const perms = JSON.stringify(readPerms())
+      let id = current?.id
+      if (id) DB.run('UPDATE roles SET name_ar = ?, name_en = ?, perms = ? WHERE id = ?', [ar, en, perms, id])
+      else { DB.run('INSERT INTO roles (name_ar, name_en, perms) VALUES (?, ?, ?)', [ar, en, perms]); id = DB.one('SELECT last_insert_rowid() AS id').id }
+      DB.audit('تعديل صلاحيات', ar, `${Object.keys(JSON.parse(perms)).length} شاشة`)
+      await DB.flush()
+      if (id === Session.roleId) Session.rolePerms = JSON.parse(perms)
+      load(id)
+      UI.message('تم الحفظ')
+    }
+    async function remove() {
+      if (!current) return UI.message('اختر صلاحية')
+      if (current.builtin) return UI.message('لا يمكن حذف «مدير النظام»')
+      if (DB.one('SELECT 1 FROM users WHERE role_id = ?', [current.id])) return UI.message('لا يمكن حذف صلاحية مرتبطة بمستخدمين')
+      if (!(await UI.confirm(`حذف الصلاحية «${current.name_ar}»؟`))) return
+      DB.run('DELETE FROM roles WHERE id = ?', [current.id])
+      DB.audit('حذف صلاحية', current.name_ar)
+      await DB.flush()
+      load()
+    }
+    load()
   })
 }
-// «تحديد الكل» per menu group (the dialog is in the DOM while open)
-document.addEventListener('change', (e) => {
-  if (!e.target.matches('.perm-grid .all')) return
-  e.target.closest('fieldset').querySelectorAll('input[value]').forEach((i) => (i.checked = e.target.checked))
-})
+
+function openUsers() {
+  UI.openWindow('users', 'إدارة المستخدمين', { width: 1000, height: 520 }, (body, win) => {
+    let current = null
+    const bar = UI.toolbar([
+      { key: 'new', label: 'جديد', icon: 'new', onClick: () => pick(null) },
+      { key: 'save', label: 'حفظ', icon: 'save', onClick: save },
+      { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const roles = () => DB.all('SELECT id, name_ar FROM roles ORDER BY id')
+    const view = UI.el(`<div class="users-apex">
+      <div class="band">إضافة المستخدمين والصلاحيات</div>
+      <div class="fields u-form">
+        <label>الكود</label><input type="text" id="us-id" readonly><label>الصلاحية</label><select id="us-role"></select>
+        <label>إسم الدخول</label><input type="text" id="us-login"><label>اسم المستخدم</label><input type="text" id="us-name">
+        <label>كلمة المرور</label><input type="password" id="us-pw" placeholder="اتركها فارغة لعدم التغيير"><label>تأكيد كلمة المرور</label><input type="password" id="us-pw2">
+      </div>
+      <div class="band">بيانات المستخدمين</div>
+      <div class="grid-wrap"><table class="grid"><thead><tr><th style="width:16px"></th><th style="width:60px" class="sorted">الكود</th><th>إسم الدخول</th><th>كلمة المرور</th><th>الصلاحية</th><th>اسم المستخدم</th></tr></thead><tbody id="us-list"></tbody></table></div>
+    </div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    function load(selectId) {
+      $('#us-role').innerHTML = roles().map((r) => `<option value="${r.id}">${UI.esc(r.name_ar)}</option>`).join('')
+      const tb = $('#us-list')
+      tb.innerHTML = ''
+      for (const u of DB.all('SELECT u.*, r.name_ar role FROM users u LEFT JOIN roles r ON r.id = u.role_id ORDER BY u.id')) {
+        const tr = UI.el(`<tr data-id="${u.id}"><td class="sel"></td><td class="center">${u.id}</td><td>${UI.esc(u.username)}</td><td>••••••</td><td>${UI.esc(u.role || '')}</td><td>${UI.esc(u.full_name || '')}</td></tr>`)
+        tr.onmousedown = () => pick(u)
+        tb.appendChild(tr)
+      }
+      pick(selectId ? DB.one('SELECT * FROM users WHERE id = ?', [selectId]) : null)
+    }
+    function pick(u) {
+      current = u
+      view.querySelectorAll('#us-list tr').forEach((tr) => tr.classList.toggle('current', !!u && +tr.dataset.id === u.id))
+      $('#us-id').value = u?.id ?? ''
+      $('#us-login').value = u?.username ?? ''
+      $('#us-name').value = u?.full_name ?? ''
+      $('#us-role').value = String(u?.role_id ?? roles().find((r) => r.id !== 1)?.id ?? 1)
+      $('#us-pw').value = $('#us-pw2').value = ''
+      $('#us-pw').placeholder = u ? 'اتركها فارغة لعدم التغيير' : 'كلمة المرور (4 أحرف على الأقل)'
+      if (!u) $('#us-login').focus()
+    }
+    const adminCount = () => DB.one('SELECT COUNT(*) n FROM users u JOIN roles r ON r.id = u.role_id WHERE r.builtin = 1').n
+    async function save() {
+      const login = $('#us-login').value.trim(), name = $('#us-name').value.trim(), role = +$('#us-role').value
+      const pw = $('#us-pw').value, pw2 = $('#us-pw2').value
+      if (!login) return UI.message('إسم الدخول مطلوب')
+      if (DB.one('SELECT 1 FROM users WHERE username = ? AND id != ?', [login, current?.id || 0])) return UI.message('إسم الدخول موجود')
+      if (!current && !pw) return UI.message('كلمة المرور مطلوبة للمستخدم الجديد')
+      if (pw && pw.length < 4) return UI.message('كلمة المرور 4 أحرف على الأقل')
+      if (pw !== pw2) return UI.message('كلمتا المرور غير متطابقتين')
+      const wasAdmin = current && DB.one('SELECT builtin FROM roles WHERE id = ?', [current.role_id])?.builtin
+      const nowAdmin = DB.one('SELECT builtin FROM roles WHERE id = ?', [role])?.builtin
+      if (wasAdmin && !nowAdmin && adminCount() === 1) return UI.message('لا يمكن إزالة صلاحية آخر مدير للنظام')
+      let id = current?.id
+      if (id) {
+        DB.run('UPDATE users SET username = ?, full_name = ?, role_id = ?, is_admin = ? WHERE id = ?', [login, name, role, nowAdmin ? 1 : 0, id])
+        if (pw) DB.run('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(pw), id])
+      } else {
+        DB.run('INSERT INTO users (username, password, full_name, role_id, is_admin) VALUES (?, ?, ?, ?, ?)', [login, await hashPassword(pw), name, role, nowAdmin ? 1 : 0])
+        id = DB.one('SELECT last_insert_rowid() AS id').id
+      }
+      DB.audit(current ? 'تعديل مستخدم' : 'إضافة مستخدم', login)
+      await DB.flush()
+      load(id)
+      UI.message('تم الحفظ')
+    }
+    async function remove() {
+      if (!current) return UI.message('اختر مستخدماً')
+      if (current.id === Session.userId) return UI.message('لا يمكن حذف المستخدم الحالي')
+      if (DB.one('SELECT builtin FROM roles WHERE id = ?', [current.role_id])?.builtin && adminCount() === 1) return UI.message('لا يمكن حذف آخر مدير للنظام')
+      if (!(await UI.confirm(`حذف المستخدم «${current.username}»؟`))) return
+      DB.run('DELETE FROM users WHERE id = ?', [current.id])
+      DB.audit('حذف مستخدم', current.username)
+      await DB.flush()
+      load()
+    }
+    load()
+  })
+}
 
 function openAuditLog() {
   UI.openWindow('audit', 'سجل الحركات', { width: 900, height: 460 }, (body, win) => {

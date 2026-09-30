@@ -23,7 +23,8 @@ const MENUS = [
     ['ترحيل الحركات', postPunches], ['الغاء ترحيل الحركات', openUnpost], ['الغاء جميع بيانات الموظف بالنظام', purgeEmployee],
   ] },
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
-  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules], ['اعدادات المستخدمين', openUsers], ['اعدادات النظام', openSystemSettings], ['الربط بالموقع', openWebLink]] },
+  { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules],
+    ['اعدادات المستخدمين', [['صلاحيات المستخدمين', openRoles], ['إدارة المستخدمين', openUsers]]], ['اعدادات النظام', openSystemSettings], ['الربط بالموقع', openWebLink]] },
   { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
   { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', async () => { const p = await window.bridge.paths(); UI.message(`Meena Time — الإصدار ${VERSION}\nمجلد البيانات: ${p.data}\nالنسخ الاحتياطية: ${p.backups} (نسخة تلقائية يومياً، آخر 30 نسخة)`) }]] },
 ]
@@ -42,16 +43,25 @@ function buildMenu() {
   for (const m of MENUS) {
     const menu = UI.el(`<div class="menu"><button>${ICONS[m.icon]}<span>${m.label}</span></button><div class="drop"></div></div>`)
     const drop = menu.querySelector('.drop')
-    // permissions are stored as "<menu>/<item>" — the same label can exist in two menus
-    const allowed = (label) => Session.admin || ['تسجيل المنتج', 'عن البرنامج', 'دليل الاستخدام', 'تسجيل خروج'].includes(label) || (Session.perms || []).includes(`${m.label}/${label}`)
-    const items = m.items.filter((it) => it === '-' || allowed(it[0])).filter((it, i, a) => !(it === '-' && (i === 0 || a[i - 1] === '-' || i === a.length - 1)))
+    // screen keys are "<menu>/<item>" — the same label can exist in two menus; a sub-menu
+    // (Apex's «اعدادات المستخدمين ▸») shows when any of its items is allowed
+    const open = ['تسجيل المنتج', 'عن البرنامج', 'دليل الاستخدام', 'تسجيل خروج']
+    const allowed = (label, fn) => Array.isArray(fn) ? fn.some(([l]) => allowed(l)) : open.includes(label) || Perm.can(`${m.label}/${label}`)
+    const items = m.items.filter((it) => it === '-' || allowed(it[0], it[1])).filter((it, i, a) => !(it === '-' && (i === 0 || a[i - 1] === '-' || i === a.length - 1)))
     if (!items.some((it) => it !== '-')) continue
+    const itemButton = (label, fn) => {
+      const b = UI.el(`<button>${ICONS.item.replace('<svg', '<svg class="ico"')}<span>${label}</span></button>`)
+      b.onclick = () => { closeMenus(); Perm.run(`${m.label}/${label}`, fn || soon(label)) }
+      return b
+    }
     for (const it of items) {
       if (it === '-') { drop.appendChild(UI.el('<hr>')); continue }
       const [label, fn] = it
-      const b = UI.el(`<button>${ICONS.item.replace('<svg', '<svg class="ico"')}<span>${label}</span></button>`)
-      b.onclick = () => { closeMenus(); (fn || soon(label))() }
-      drop.appendChild(b)
+      if (Array.isArray(fn)) {
+        const sub = UI.el(`<div class="sub"><button class="has-sub">${ICONS.item.replace('<svg', '<svg class="ico"')}<span>${label}</span><i>◂</i></button><div class="drop sub-drop"></div></div>`)
+        for (const [l, f] of fn.filter(([l]) => allowed(l))) sub.querySelector('.sub-drop').appendChild(itemButton(l, f))
+        drop.appendChild(sub)
+      } else drop.appendChild(itemButton(label, fn))
     }
     menu.querySelector(':scope > button').onclick = (e) => {
       e.stopPropagation()
@@ -84,10 +94,9 @@ function renderHome() {
         <div class="tile" data-t="proc">${ICONS.device}<span>الإجراءات</span></div>
         <div class="tile" data-t="setup">${ICONS.tools}<span>التجهيز</span></div>
       </div></div>`)
-  const can = (l) => Session.admin || (Session.perms || []).includes(l)  // l = "<menu>/<item>"
-  const guard = (l, fn) => () => (can(l) ? fn() : UI.message('ليس لديك صلاحية لهذه الشاشة'))
+  const guard = (l, fn) => () => (Perm.can(l) ? Perm.run(l, fn) : UI.message('ليس لديك صلاحية لهذه الشاشة'))
   home.querySelector('[data-t=setup]').onclick = guard('البيانات الأساسية/مواعيد العمل', openShiftGroups)
-  home.querySelector('[data-t=users]').onclick = guard('الإعدادات/اعدادات المستخدمين', openUsers)
+  home.querySelector('[data-t=users]').onclick = guard('الإعدادات/إدارة المستخدمين', openUsers)
   home.querySelector('[data-t=reports]').onclick = guard('التقارير/حالة اليوم', () => openReport('حالة اليوم'))
   home.querySelector('[data-t=proc]').onclick = guard('الإجراءات/قراءة الحركات (شبكة - ملف)', openReadPunches)
   desk.prepend(home)
@@ -151,8 +160,10 @@ async function login() {
         }
         Session.userId = u.id
         Session.username = u.username
-        Session.admin = !!u.is_admin
-        Session.perms = JSON.parse(u.permissions || '[]')
+        const role = DB.one('SELECT * FROM roles WHERE id = ?', [u.role_id]) || {}
+        Session.roleId = role.id || null
+        Session.admin = !!role.builtin
+        Session.rolePerms = JSON.parse(role.perms || '{}')
         try { localStorage.setItem('mt-last-user', u.username) } catch {}
         // an empty password (first start) must be changed before going on
         if (!pass) {
