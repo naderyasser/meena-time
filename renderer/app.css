@@ -325,3 +325,25 @@ table.rep.month-grid td.sig { width: 70px; }
 .win .fields { display: grid; grid-template-columns: 110px 1fr; gap: 6px 8px; align-items: center; }
 .win .fields > label { color: #0b3fa8; font-weight: bold; }
 .users-apex .fields.u-form { grid-template-columns: 110px 1fr 130px 1fr; }
+
+/* «قراءة الحركات» (Apex: الفترة on top, devices | files, عدد الحركات) */
+.read-punches { display: flex; flex-direction: column; gap: 8px; padding: 8px; flex: 1; min-height: 0; }
+.read-punches fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 6px 10px; background: #fff; }
+.read-punches legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; }
+.read-punches .per, .read-punches .count { display: flex; gap: 8px; align-items: center; }
+.read-punches .per label, .read-punches .count label { color: #0b3fa8; font-weight: bold; }
+.read-punches .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; min-height: 0; }
+.read-punches .cols fieldset { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.read-punches .cols .grid-wrap { flex: 1; min-height: 110px; }
+.read-punches .cols > fieldset > button { align-self: center; display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; }
+.read-punches .file-box { display: flex; gap: 4px; flex: 1; min-height: 0; }
+.read-punches .fbtns { display: flex; flex-direction: column; gap: 4px; }
+.read-punches .fbtns .fadd, .read-punches .fbtns button { width: 30px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid #9aa; background: #f4f6f8; cursor: pointer; padding: 0; }
+.read-punches .ip { color: #666; font-size: 11px; }
+.read-punches .dot.on { color: #1a9a3a; font-weight: bold; }
+.read-punches .dot.off { color: #d11; font-weight: bold; }
+.read-punches #rp-count { width: 90px; text-align: center; }
+.read-punches #rp-msg { font-size: 12px; color: #333; }
+.read-punches .cols > fieldset > button svg { width: 22px; height: 22px; }
+.read-punches .cols > fieldset > button span { white-space: nowrap; font-weight: bold; color: #0b3fa8; }
+.read-punches .fbtns svg { width: 18px; height: 18px; }

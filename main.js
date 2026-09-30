@@ -66,6 +66,12 @@ ipcMain.handle('licence:register', (_e, code) => {
 })
 
 // «قراءة الحركات» from a ZKTeco device on the LAN (TCP 4370, UDP fallback inside node-zklib).
+// «حالة الجهاز» light in «قراءة الحركات»: can we open a TCP connection to the device?
+ipcMain.handle('device:ping', (_e, { ip, port }) => new Promise((resolve) => {
+  const sock = require('net').createConnection({ host: ip, port: port || 4370, timeout: 2000 })
+  const done = (ok) => { sock.destroy(); resolve(ok) }
+  sock.once('connect', () => done(true)); sock.once('timeout', () => done(false)); sock.once('error', () => done(false))
+}))
 ipcMain.handle('device:read', async (_e, { ip, port }) => {
   const ZKLib = require('node-zklib')
   const zk = new ZKLib(ip, port || 4370, 10000, 4000)

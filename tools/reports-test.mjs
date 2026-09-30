@@ -148,6 +148,23 @@ const xl = await p.evaluate(() => { const wb = XLSX.utils.book_new(); let ok = t
   return { ok, sheets: wb.SheetNames.length } })
 check('excel: one sheet per employee table, unique names', xl.ok === true && xl.sheets === 4, JSON.stringify(xl))
 
+// Apex: reading punches of an unknown number creates «موظف جديد»
+const ac = await p.evaluate(async () => {
+  const r1 = await storePunches([{ code: '5000', ts: '2026-09-14 09:00:00' }, { code: '5000', ts: '2026-09-14 17:00:00' }], 'device', 1)
+  const e = DB.one("SELECT * FROM employees WHERE code = '5000'")
+  const n = DB.one("SELECT COUNT(*) n FROM punches WHERE emp_code = '5000'").n
+  WebSync.linked = true
+  const r2 = await storePunches([{ code: '6000', ts: '2026-09-14 09:00:00' }], 'device', 1)
+  WebSync.linked = false
+  licence = { ok: false }
+  const r3 = await storePunches([{ code: '7000', ts: '2026-09-14 09:00:00' }], 'device', 1)
+  licence = { ok: true, edition: 'Gold' }
+  return { r1: r1.text, name: e?.name_ar, en: e?.name_en, n, r2: r2.text, six: !!DB.one("SELECT 1 FROM employees WHERE code = '6000'"), r3: r3.text, seven: !!DB.one("SELECT 1 FROM employees WHERE code = '7000'") }
+})
+check('unknown number → «موظف جديد» / New Employee + its punches stored', ac.name === 'موظف جديد' && ac.en === 'New Employee' && ac.n === 2 && /موظفين جدد 1/.test(ac.r1), JSON.stringify(ac))
+check('linked to the site → not created (site owns employees)', !ac.six && /غير معرّفة 1/.test(ac.r2), ac.r2)
+check('trial over its employee limit → not created', !ac.seven && /غير معرّفة 1/.test(ac.r3), ac.r3)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 await app.close()
 fs.rmSync(UD, { recursive: true, force: true })

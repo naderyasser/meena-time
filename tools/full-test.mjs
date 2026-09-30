@@ -247,16 +247,21 @@ fs.writeFileSync(`${UD}/attlog.dat`, [
   '  1001\t2026-09-24 09:00:00\t1\t0',                                              // Thu: weekly off
   '1002,2026-09-19 07:55', '1002,19/09/2026 15:00',                                   // CSV + dd/mm/yyyy; 60 early
   '  9999\t2026-09-19 08:00:00\t1\t0', '  1001\t2026-09-19 08:10:05\t1\t0', 'garbage line'].join('\n'))
-await menu('الإجراءات', 'قراءة الحركات'); await snap('read-punches')
-await p.locator('.dlg').getByRole('button', { name: 'قراءة من الملف' }).click(); await p.waitForTimeout(150)
-check('read punches: file required', /اختر ملف/.test(await p.locator('.dlg .err').textContent()))
-await p.locator('#rp-file').setInputFiles(`${UD}/attlog.dat`)
-await p.locator('.dlg').getByRole('button', { name: 'قراءة من الملف' }).click(); await p.waitForTimeout(400)
-const imp = await p.locator('.dlg .err').textContent()
-check('read punches: file import counts (9 new, 1 dup, 1 unknown)', /جديدة 9 · مكررة 1 · لموظفين غير معرّفين 1/.test(imp), imp)
-await p.locator('.dlg').getByRole('button', { name: 'قراءة من الجهاز' }).click(); await p.waitForTimeout(12000)
-check('read punches: unreachable device → clear error', /تعذّر الاتصال/.test(await p.locator('.dlg .err').textContent()), await p.locator('.dlg .err').textContent())
-await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
+await menu('الإجراءات', 'قراءة الحركات'); w = win('قراءة الحركات'); await snap('read-punches')
+await w.locator('#rp-read-file').click(); check('read punches: file required', /اختر ملف/.test(await okMsg()))
+await w.locator('#rp-from').fill('2026-09-20'); await w.locator('#rp-to').fill('2026-09-30')
+await w.locator('#rp-file').setInputFiles(`${UD}/attlog.dat`); await w.locator('#rp-read-file').click(); await p.waitForTimeout(400)
+let imp = await w.locator('#rp-msg').textContent()
+check('read punches: period filter keeps only 20–30 Sep', /خارج الفترة 6/.test(imp) && /جديدة 5/.test(imp), imp)
+await w.locator('#rp-from').fill('2026-09-01'); await w.locator('#rp-read-file').click(); await p.waitForTimeout(400)
+imp = await w.locator('#rp-msg').textContent()
+check('read punches: re-read the whole month (4 new, 6 dup) + unknown 9999 handled', /جديدة 4 · مكررة 6/.test(imp) && /(غير معرّفة 1|موظفين جدد 1)/.test(imp), imp)
+check('read punches: «عدد الحركات» shows the new count', (await w.locator('#rp-count').inputValue()) === '4')
+await p.waitForTimeout(2500)
+check('read punches: unreachable device shows the red light', (await w.locator('.st .dot.off').count()) >= 1)
+await w.locator('.rp-dev').first().check(); await w.locator('#rp-read-dev').click(); await p.waitForTimeout(12000)
+check('read punches: unreachable device → clear error', /تعذّر الاتصال/.test(await w.locator('#rp-msg').textContent()), await w.locator('#rp-msg').textContent())
+await closeWin(w)
 
 await menu('الإجراءات', 'عرض الحركات'); w = win('عرض الحركات')
 await w.locator('#vp-from').fill('2026-09-01'); await w.locator('#vp-go').click(); await p.waitForTimeout(200)
@@ -489,10 +494,10 @@ fs.writeFileSync(`${UD}/att2.dat`, [
   '1006,2026-09-19 09:00', '1006,2026-09-19 15:00', '1006,2026-09-22 09:00', '1006,2026-09-22 14:00',   // open: 2h short / Ramadan 5h ok
   '1007,2026-09-19 07:00', '1007,2026-09-19 15:00', '1007,2026-09-22 15:10', '1007,2026-09-22 23:00',   // rotating
   '1002,2026-09-21 08:00', '1002,2026-09-21 16:00', '1001,2026-09-21 08:05', '1001,2026-09-21 16:00'].join('\n'))
-await menu('الإجراءات', 'قراءة الحركات'); await p.locator('#rp-file').setInputFiles(`${UD}/att2.dat`)
-await p.locator('.dlg').getByRole('button', { name: 'قراءة من الملف' }).click(); await p.waitForTimeout(400)
-check('import 2: 18 new punches', /جديدة 18/.test(await p.locator('.dlg .err').textContent()), await p.locator('.dlg .err').textContent())
-await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
+await menu('الإجراءات', 'قراءة الحركات'); w = win('قراءة الحركات'); await w.locator('#rp-from').fill('2026-09-01')
+await w.locator('#rp-file').setInputFiles(`${UD}/att2.dat`); await w.locator('#rp-read-file').click(); await p.waitForTimeout(400)
+check('import 2: 18 new punches', /جديدة 18/.test(await w.locator('#rp-msg').textContent()), await w.locator('#rp-msg').textContent())
+await closeWin(w)
 // detailed report 19..24 for everyone
 const detailed = async () => {
   await menu('التقارير', 'الحضور والانصراف تفصيلي'); const rw = win('الحضور والانصراف تفصيلي')

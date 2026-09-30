@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('bridge', {
   licenceStatus: () => ipcRenderer.invoke('licence:status'),
   register: (code) => ipcRenderer.invoke('licence:register', code),
   readDevice: (dev) => ipcRenderer.invoke('device:read', dev),
+  pingDevice: (dev) => ipcRenderer.invoke('device:ping', dev),
   backup: (year, bytes) => ipcRenderer.invoke('db:backup', year, bytes),
   paths: () => ipcRenderer.invoke('paths'),
   saveFile: (name, bytes, ext) => ipcRenderer.invoke('file:save', name, bytes, ext),

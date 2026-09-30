@@ -172,7 +172,7 @@ const AutoRead = {
     const log = []
     for (const d of devices) {
       const res = await this.read(d)
-      log.push(res.ok ? `${d.name}: ${await storePunches(res.punches, 'device', d.id)}` : `${d.name}: ${res.error || 'تعذّر الاتصال'}`)
+      log.push(res.ok ? `${d.name}: ${(await storePunches(res.punches, 'device', d.id)).text}` : `${d.name}: ${res.error || 'تعذّر الاتصال'}`)
     }
     const yesterday = Engine.addDays(Engine.today(), -1)
     const lastPosted = DB.one('SELECT MAX(to_date) AS d FROM posted_periods')?.d

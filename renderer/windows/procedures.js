@@ -42,52 +42,107 @@ function parsePunchFile(text) {
   return out
 }
 
-async function storePunches(list, source, deviceId = null) {
+// Store read punches. Like Apex: a punch of an unknown number creates the employee
+// («موظف جديد» / New Employee — complete the name and shift in «الموظفين»), except while
+// the site owns the employee list (linked) or the trial's employee limit is reached.
+// Optional period {from, to} keeps only punches inside it (Apex «الفترة»).
+async function storePunches(list, source, deviceId = null, { from = null, to = null, autoCreate = true } = {}) {
   const known = new Set(DB.all('SELECT code FROM employees').map((e) => e.code))
-  let added = 0, dup = 0, unknown = 0, posted = 0
+  let added = 0, dup = 0, unknown = 0, posted = 0, outside = 0, created = 0
+  const canCreate = autoCreate && !WebSync.linked
   DB.run('BEGIN')
   for (const p of list) {
-    if (!known.has(p.code)) { unknown++; continue }
-    if (Engine.isPosted(p.ts.slice(0, 10))) { posted++; continue }
+    const day = p.ts.slice(0, 10)
+    if ((from && day < from) || (to && day > to)) { outside++; continue }
+    if (!known.has(p.code)) {
+      const n = DB.one('SELECT COUNT(*) AS n FROM employees').n
+      if (!canCreate || (!licence.ok && n >= Trial.MAX_EMPLOYEES)) { unknown++; continue }
+      DB.run("INSERT INTO employees (code, name_ar, name_en, status) VALUES (?, 'موظف جديد', 'New Employee', 'نشط')", [p.code])
+      known.add(p.code); created++
+    }
+    if (Engine.isPosted(day)) { posted++; continue }
     if (DB.one('SELECT 1 FROM web_deleted WHERE emp_code = ? AND ts = ?', [p.code, p.ts])) { dup++; continue } // deleted on the site
     DB.run('INSERT OR IGNORE INTO punches (emp_code, ts, source, device_id) VALUES (?, ?, ?, ?)', [p.code, p.ts, source, deviceId])
     if (DB.one('SELECT changes() AS c').c > 0) added++
     else dup++
   }
   DB.run('COMMIT')
+  if (created) DB.audit('موظفين جدد من الحركات', `${created}`, 'أضيفوا تلقائياً عند قراءة الحركات')
   await DB.flush()
   if (added && WebSync.linked) WebSync.sync({ quiet: true }) // send them to the site
-  return `تمت قراءة ${list.length} حركة: جديدة ${added} · مكررة ${dup}` +
-    (unknown ? ` · لموظفين غير معرّفين ${unknown}` : '') + (posted ? ` · في فترة مرحّلة ${posted}` : '')
+  return { added, dup, unknown, posted, outside, created, total: list.length,
+    text: `تمت قراءة ${list.length} حركة: جديدة ${added} · مكررة ${dup}` + (created ? ` · موظفين جدد ${created} (أكمل بياناتهم من «الموظفين»)` : '') +
+      (unknown ? ` · لأرقام غير معرّفة ${unknown}` : '') + (posted ? ` · في فترة مرحّلة ${posted}` : '') + (outside ? ` · خارج الفترة ${outside}` : '') }
 }
 
+// «قراءة الحركات (شبكة - ملف)» — Apex's window: الفترة, the devices (tick several, status
+// light), punch files (several at once), «عدد الحركات».
 function openReadPunches() {
-  const devices = DB.all('SELECT * FROM devices ORDER BY name')
-  UI.dialog({
-    head: 'قراءة الحركات (شبكة - ملف)', width: 520,
-    bodyHtml: `<div class="fields" style="grid-template-columns:110px 1fr">
-      <label>من الجهاز</label><select id="rp-dev">${devices.map((d) => `<option value="${d.id}">${UI.esc(d.name)} — ${UI.esc(d.ip)}</option>`).join('') || '<option value="">لا توجد أجهزة معرّفة</option>'}</select>
-      <label>أو من ملف</label><input type="file" id="rp-file" accept=".txt,.dat,.csv,.log">
-    </div>`,
-    buttons: [
-      { label: 'قراءة من الجهاز', icon: 'device', onClick: async (d) => {
-        const id = +d.root.querySelector('#rp-dev').value
-        if (!id) return d.error('عرّف الجهاز أولاً من «البيانات الأساسية ← تعريف الأجهزة»')
+  UI.openWindow('read-punches', 'قراءة الحركات من جهاز بالشبكة', { width: 900, height: 470 }, (body, win) => {
+    const devices = DB.all('SELECT * FROM devices ORDER BY id')
+    let files = []
+    const bar = UI.toolbar([{ key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() }])
+    const view = UI.el(`<div class="read-punches">
+      <fieldset class="per"><legend>الفتـــرة</legend><label>مـــن</label><input type="date" id="rp-from" value="${monthStart()}"><label>إلـــى</label><input type="date" id="rp-to" value="${Engine.today()}"></fieldset>
+      <div class="cols">
+        <fieldset class="devs"><legend>سـحب بيانـات الاجـهزة بالـشبكة</legend>
+          <div class="grid-wrap"><table class="grid"><thead><tr><th style="width:28px"><input type="checkbox" id="rp-all"></th><th style="width:50px">الرقم</th><th>الجهاز</th><th style="width:40px"></th></tr></thead>
+          <tbody>${devices.map((d) => `<tr data-id="${d.id}"><td class="center"><input type="checkbox" class="rp-dev" value="${d.id}"></td><td class="center">${d.id}</td><td>${UI.esc(d.name)} <span class="ip" dir="ltr">${UI.esc(d.ip || '')}</span></td><td class="center st" title="جاري الفحص…">…</td></tr>`).join('')
+            || '<tr><td colspan="4" class="empty">عرّف الجهاز أولاً من «البيانات الأساسية ← تعريف الأجهزة»</td></tr>'}</tbody></table></div>
+          <button id="rp-read-dev">${ICONS.save || ''}<span>قراءة بيانات الجهاز</span></button>
+        </fieldset>
+        <fieldset class="files"><legend>قراءة البيانات من ملفات الحركات</legend>
+          <div class="file-box"><div class="fbtns"><label class="fadd" title="اضافة ملف">${ICONS.new || '+'}<input type="file" id="rp-file" accept=".txt,.dat,.csv,.log" multiple hidden></label><button id="rp-frem" title="حذف الملف المحدد">${ICONS.del || '×'}</button></div>
+            <div class="grid-wrap"><table class="grid"><thead><tr><th>المسار</th></tr></thead><tbody id="rp-flist"></tbody></table></div></div>
+          <button id="rp-read-file">${ICONS.save || ''}<span>قراءة ملف الحركات</span></button>
+        </fieldset>
+      </div>
+      <fieldset class="count"><label>عدد الحركات</label><input type="text" id="rp-count" readonly><span id="rp-msg"></span></fieldset>
+    </div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    const period = () => {
+      const from = $('#rp-from').value, to = $('#rp-to').value
+      if (!from || !to || from > to) { UI.message('فترة غير صحيحة'); return null }
+      return { from, to }
+    }
+    const show = (res) => { $('#rp-count').value = res.added; $('#rp-msg').textContent = res.text }
+    // status lights: green = reachable on the network, red = not
+    for (const d of devices) window.bridge.pingDevice?.({ ip: d.ip, port: +d.port || 4370 }).then((ok) => {
+      const td = view.querySelector(`tr[data-id="${d.id}"] .st`)
+      if (td) { td.innerHTML = ok ? '<span class="dot on">✔</span>' : '<span class="dot off">✖</span>'; td.title = ok ? 'الجهاز متصل' : 'الجهاز غير متصل' }
+    })
+    $('#rp-all')?.addEventListener('change', (e) => view.querySelectorAll('.rp-dev').forEach((c) => { c.checked = e.target.checked }))
+    $('#rp-read-dev').onclick = async () => {
+      const per = period(); if (!per) return
+      const ids = [...view.querySelectorAll('.rp-dev:checked')].map((c) => +c.value)
+      if (!ids.length) return UI.message(devices.length ? 'حدد جهازاً واحداً على الأقل' : 'عرّف الجهاز أولاً من «البيانات الأساسية ← تعريف الأجهزة»')
+      const total = { added: 0, texts: [] }
+      for (const id of ids) {
         const dev = devices.find((x) => x.id === id)
-        d.error('جاري الاتصال بالجهاز…')
+        $('#rp-msg').textContent = `جاري الاتصال بالجهاز ${dev.name}…`
         const res = await window.bridge.readDevice({ ip: dev.ip, port: +dev.port || 4370 })
-        if (!res.ok) return d.error(res.error || 'تعذّر الاتصال بالجهاز')
-        d.error(await storePunches(res.punches, 'device', id))
-      } },
-      { label: 'قراءة من الملف', icon: 'new', onClick: async (d) => {
-        const f = d.root.querySelector('#rp-file').files[0]
-        if (!f) return d.error('اختر ملف الحركات')
-        const list = parsePunchFile(await f.text())
-        if (!list.length) return d.error('لم يتم التعرف على أي حركة في الملف')
-        d.error(await storePunches(list, 'file'))
-      } },
-      { label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close() },
-    ],
+        if (!res.ok) { total.texts.push(`${dev.name}: ${res.error || 'تعذّر الاتصال بالجهاز'}`); continue }
+        const r = await storePunches(res.punches, 'device', id, per)
+        total.added += r.added; total.texts.push(`${dev.name}: ${r.text}`)
+      }
+      show({ added: total.added, text: total.texts.join(' — ') })
+      DB.audit('قراءة الحركات', 'أجهزة', total.texts.join(' | '))
+    }
+    const drawFiles = () => { $('#rp-flist').innerHTML = files.map((f, i) => `<tr data-i="${i}"><td dir="ltr">${UI.esc(f.name)}</td></tr>`).join('') }
+    $('#rp-file').addEventListener('change', (e) => { files = [...files, ...e.target.files]; e.target.value = ''; drawFiles() })
+    $('#rp-flist').addEventListener('mousedown', (e) => { const tr = e.target.closest('tr'); if (!tr) return; $('#rp-flist').querySelectorAll('tr').forEach((x) => x.classList.toggle('current', x === tr)) })
+    $('#rp-frem').onclick = () => { const tr = $('#rp-flist tr.current'); if (!tr) return UI.message('حدد ملفاً من القائمة'); files.splice(+tr.dataset.i, 1); drawFiles() }
+    $('#rp-read-file').onclick = async () => {
+      const per = period(); if (!per) return
+      if (!files.length) return UI.message('اختر ملف الحركات')
+      const list = []
+      for (const f of files) list.push(...parsePunchFile(await f.text()))
+      if (!list.length) return UI.message('لم يتم التعرف على أي حركة في الملف')
+      const r = await storePunches(list, 'file', null, per)
+      show(r)
+      DB.audit('قراءة الحركات', `${files.length} ملف`, r.text)
+    }
   })
 }
 
