@@ -131,7 +131,7 @@ function openEmployeeForm(emp, onSaved) {
         <label>الجنس</label>${sel('gender', [['ذكر', 'ذكر'], ['أنثى', 'أنثى']])}
         <label>الجنسية</label>${sel('nationality_id', listOptions('nationality')())}
         <label>رقم الهوية</label>${txt('national_id', 'dir="ltr"')}
-        <label>الديانة</label>${sel('religion', [['مسلم', 'مسلم'], ['غير مسلم', 'غير مسلم']])}
+        <label>الديانة</label>${sel('religion', [...new Set(['مسلم', 'غير مسلم', ...listOptions('religion')().map(([, n]) => n), e?.religion].filter(Boolean))].map((n) => [n, n]))}
         <label>تاريخ الميلاد</label>${date('birth_date')}
         <label>رقم الجوال</label>${txt('mobile', 'dir="ltr"')}
         <label>البريد الالكتروني</label>${txt('email', 'dir="ltr"')}

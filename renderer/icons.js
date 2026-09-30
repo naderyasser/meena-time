@@ -11,6 +11,7 @@ const ICONS = {
   cancel: '<svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19" stroke="#d0231c" stroke-width="4" stroke-linecap="round"/></svg>',
   help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#3d6fb5"/><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">?</text></svg>',
   clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#e9eef3" stroke="#6f7b87"/><path d="M12 6v6l4 3" stroke="#333" stroke-width="2" fill="none"/></svg>',
+  search: '<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="#e8f2fb" stroke="#6d7782" stroke-width="2"/><path d="M14.5 14.5l6 6" stroke="#c0392b" stroke-width="3" stroke-linecap="round"/></svg>',
   new: '<svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z" fill="#fff" stroke="#7b8792"/><circle cx="17" cy="17" r="5" fill="#6a7682"/><path d="M17 14v6M14 17h6" stroke="#fff" stroke-width="2"/></svg>',
   save: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="#2e9b3a"/><rect x="7" y="3" width="10" height="7" fill="#e7f5e8"/><rect x="6" y="13" width="12" height="8" fill="#fff"/></svg>',
   undo: '<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke="#3d6fb5" stroke-width="2.5"/><path d="M14 14l6 6" stroke="#3d6fb5" stroke-width="3" stroke-linecap="round"/></svg>',

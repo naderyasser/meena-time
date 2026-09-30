@@ -374,3 +374,72 @@ table.rep.month-grid td.sig { width: 70px; }
 .edit-punches .times { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .edit-punches .times .grid-wrap { flex: 1; min-height: 120px; }
 .edit-punches .t-in, .edit-punches .t-out { width: 80px; text-align: center; font-weight: bold; }
+/* Apex «ترحيل الحركات» / «الغاء ترحيل الحركات» */
+.post-win { display: flex; flex-direction: column; gap: 10px; padding: 8px 14px; }
+.post-win fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 8px 12px; background: #fff; display: flex; flex-direction: column; gap: 12px; }
+.post-win legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; background: #fff; }
+.post-win .codes { display: flex; gap: 14px; align-items: center; }
+.post-win .codes label, .post-win .per label, .post-win .act label { color: #0b3fa8; font-weight: bold; }
+.post-win .rng { display: inline-flex; gap: 6px; align-items: center; }
+.post-win .rng input { width: 80px; text-align: center; }
+.post-win .per { flex-direction: row; align-items: center; gap: 12px; }
+.post-win .per input { width: 180px; }
+.post-win .act { display: flex; gap: 12px; align-items: center; justify-content: flex-start; }
+.post-win #pw-count { width: 120px; text-align: center; background: #f2f3f5; }
+.post-win #pw-go { display: inline-flex; align-items: center; gap: 10px; padding: 8px 26px; font-size: 20px; color: #0b3fa8; border: 1px solid #333; background: #fff; cursor: pointer; margin-inline-start: auto; }
+.post-win #pw-go svg { width: 26px; height: 26px; }
+.post-win .progress { height: 18px; border: 1px solid #aaa; border-radius: 4px; background: linear-gradient(#eee, #ccc); overflow: hidden; }
+.post-win #pw-bar { height: 100%; width: 0; background: linear-gradient(#5f5, #0b0); transition: width .2s; }
+/* Apex «الموظفون لمجموعة محددة» */
+.group-members { display: flex; flex-direction: column; gap: 8px; padding: 8px; flex: 1; min-height: 0; }
+.group-members .gm-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; flex: 1; min-height: 0; border: 1px solid #333; }
+.group-members .gm-list { display: flex; flex-direction: column; min-height: 0; }
+.group-members .gm-list + .gm-list { border-inline-start: 1px solid #333; }
+.group-members .gm-head { background: #1e88e5; color: #fff; text-align: center; padding: 4px; font-size: 15px; }
+.group-members .grid-wrap { flex: 1; min-height: 0; border: 0; }
+.group-members .gm-btns { display: flex; gap: 22px; align-items: center; }
+.group-members .gm-btns button { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; cursor: pointer; font-weight: bold; font-size: 13px; }
+.group-members .gm-btns svg { width: 26px; height: 26px; }
+.group-members .gm-q { color: #0b3fa8; font-size: 12px; }
+/* Apex «قوائم الأقسام والإدارات» */
+.dept-win { display: flex; gap: 30px; padding: 10px; flex: 1; min-height: 0; }
+.dept-win .dw-tree { display: flex; }
+.dept-win .dw-tree .dept-tree { width: 260px; }
+.dept-win .dw-form { grid-template-columns: 150px 240px; align-content: center; gap: 10px 12px; }
+.dept-win .dw-form label { color: #0b3fa8; }
+.dept-win .dw-form input { text-align: center; }
+.dept-win #dw-id, .dept-win #dw-parent { background: #eceef1; }
+/* Apex «اعدادات الجهاز» */
+.dev-win { display: flex; flex-direction: column; gap: 10px; padding: 8px 10px; flex: 1; min-height: 0; }
+.dev-win fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 10px 12px; background: #fff; display: flex; gap: 30px; justify-content: space-between; }
+.dev-win legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; background: #fff; }
+.dev-win .dv-main { grid-template-columns: 110px 300px; gap: 8px 10px; }
+.dev-win .dv-net { grid-template-columns: 100px 220px; gap: 8px 10px; align-content: start; background: #eceef1; border: 1px solid #999; padding: 10px; }
+.dev-win label { color: #0b3fa8; }
+.dev-win .req { color: #d11; }
+.dev-win input { text-align: center; }
+.dev-win #dv-id { background: #eceef1; }
+.dev-win .dv-dep { display: flex; gap: 4px; }
+.dev-win .dv-dep input { flex: 1; }
+.dev-win .grid-wrap { flex: 1; min-height: 0; }
+.dv-tree { height: 260px; display: flex; }
+.dv-tree .dept-tree { flex: 1; width: auto; }
+/* grid window with a side panel / caption (Apex «قوائم البرنامج») */
+.grid-side { display: flex; gap: 10px; flex: 1; min-height: 0; padding: 0 6px 6px; }
+.grid-side .gs-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.grid-side .gs-main .grid-wrap { flex: 1; }
+.grid-caption { background: #1e88e5; color: #fff; text-align: center; font-size: 16px; padding: 3px; margin-top: 6px; }
+.list-types { width: 170px; border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 4px 0; background: #fff; }
+.list-types legend { font-size: 12px; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; background: #fff; margin-inline-start: auto; }
+.list-types .lt { padding: 8px 12px; border-bottom: 1px solid #e3e3e3; cursor: pointer; font-weight: bold; color: #222; }
+.list-types .lt.on { background: linear-gradient(#ffe0a8, #f6b24e); }
+/* Apex «إضافه أجازات الموظفين» */
+.leave-dlg { display: flex; flex-direction: column; gap: 10px; }
+.leave-dlg .who { display: grid; grid-template-columns: 150px 70px 1fr; gap: 8px 10px; align-items: center; }
+.leave-dlg .who label { color: #0b3fa8; }
+.leave-dlg .who #lv-code { text-align: center; }
+.leave-dlg fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 8px 10px; }
+.leave-dlg legend { font-size: 12px; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; }
+.leave-dlg .fields label { color: #0b3fa8; }
+.leave-dlg .req { color: #d11; }
+.post-win .rng[hidden] { display: none; }

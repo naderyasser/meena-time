@@ -175,9 +175,9 @@ const AutoRead = {
       log.push(res.ok ? `${d.name}: ${(await storePunches(res.punches, 'device', d.id)).text}` : `${d.name}: ${res.error || 'تعذّر الاتصال'}`)
     }
     const yesterday = Engine.addDays(Engine.today(), -1)
-    const lastPosted = DB.one('SELECT MAX(to_date) AS d FROM posted_periods')?.d
+    const lastPosted = DB.one('SELECT MAX(date) AS d FROM posted_attendance')?.d
     const from = lastPosted ? Engine.addDays(lastPosted, 1) : DB.one('SELECT MIN(substr(ts, 1, 10)) AS d FROM punches')?.d
-    if (from && from <= yesterday && !DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [yesterday, from])) {
+    if (from && from <= yesterday) {
       const n = Engine.post(from, yesterday)
       log.push(`ترحيل ${from} → ${yesterday}: ${n} يوم`)
     }

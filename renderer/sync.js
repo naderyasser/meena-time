@@ -352,7 +352,7 @@ const WebSync = {
     const from = `${Engine.addDays(Engine.today(), -this.RECONCILE_DAYS)} 00:00:00`
     let removed = 0
     for (const r of DB.all("SELECT id, emp_code, ts, web_id FROM punches WHERE web_id IS NOT NULL AND web_id <> 'dup' AND ts >= ?", [from])) {
-      if (d.recentIds.has(r.web_id) || this.pushedNow?.has(r.web_id) || Engine.isPosted(r.ts.slice(0, 10))) continue
+      if (d.recentIds.has(r.web_id) || this.pushedNow?.has(r.web_id) || Engine.isPosted(r.ts.slice(0, 10), r.emp_code)) continue
       DB.run('DELETE FROM punches WHERE id = ?', [r.id])
       DB.run('INSERT OR IGNORE INTO web_deleted (emp_code, ts) VALUES (?, ?)', [r.emp_code, r.ts])
       removed++

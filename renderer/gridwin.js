@@ -13,6 +13,8 @@
 //   onDeleteRow?: (row) => void,                            // custom delete (inside the save transaction)
 //   validate?: (row) => string|null,                        // per-row check before saving
 //   afterSave?: () => void,
+//   scope?: () => ({ where, params, fixed }),               // show a subset; «fixed» fields go into new rows
+//   side?: (ctx) => Element, caption?: () => string,        // a panel beside the grid, a title bar above it
 // }
 function openGridWindow(cfg) {
   UI.openWindow(cfg.id, cfg.title, { width: cfg.width || 640, height: cfg.height || 360 }, (body, win) => {
@@ -25,9 +27,11 @@ function openGridWindow(cfg) {
     const blankRow = () => Object.fromEntries([['_state', 'blank'], ...cols.map((c) => [c.field, c.type === 'check' ? 0 : ''])])
     const load = () => {
       const fields = ['id', ...new Set(cols.filter((c) => !c.virtual).map((c) => c.field))].join(', ')
-      rows = DB.all(`SELECT ${fields} FROM ${cfg.table} ORDER BY ${cfg.orderBy || 'id'}`).map((r) => ({ ...r, _state: 'clean' }))
+      const sc = cfg.scope?.() || {}
+      rows = DB.all(`SELECT ${fields} FROM ${cfg.table} ${sc.where ? `WHERE ${sc.where}` : ''} ORDER BY ${cfg.orderBy || 'id'}`, sc.params || []).map((r) => ({ ...r, _state: 'clean' }))
       dirty = false
       current = Math.min(current, rows.length)
+      if (cap) cap.textContent = cfg.caption()
       draw()
     }
     const ctx = {
@@ -51,7 +55,14 @@ function openGridWindow(cfg) {
     const head = cols.map((c, i) => `<th ${i === 0 ? 'class="sorted"' : ''} style="${c.width ? `width:${c.width}px` : ''}">${UI.esc(c.label)}</th>`).join('')
     const wrap = UI.el(`<div class="grid-wrap"><table class="grid"><thead><tr>
         <th style="width:16px"></th><th style="width:34px">#</th>${head}</tr></thead><tbody></tbody></table></div>`)
-    body.append(bar, wrap)
+    const cap = cfg.caption ? UI.el('<div class="grid-caption"></div>') : null
+    const main = [cap, wrap].filter(Boolean)
+    if (cfg.side) {
+      const box = UI.el('<div class="grid-side"><div class="gs-main"></div></div>')
+      box.firstChild.append(...main)
+      box.append(cfg.side(ctx))
+      body.append(bar, box)
+    } else body.append(bar, ...main)
     const tbody = wrap.querySelector('tbody')
 
     function cell(c, r) {
@@ -109,7 +120,10 @@ function openGridWindow(cfg) {
       try {
         DB.run('BEGIN')
         for (const r of rows) {
-          if (r._state === 'new') DB.run(`INSERT INTO ${cfg.table} (${saveCols.map((c) => c.field).join(', ')}) VALUES (${saveCols.map(() => '?').join(', ')})`, saveCols.map((c) => val(c, r)))
+          if (r._state === 'new') {
+            const fx = Object.entries(cfg.scope?.().fixed || {})
+            DB.run(`INSERT INTO ${cfg.table} (${[...saveCols.map((c) => c.field), ...fx.map(([k]) => k)].join(', ')}) VALUES (${[...saveCols, ...fx].map(() => '?').join(', ')})`, [...saveCols.map((c) => val(c, r)), ...fx.map(([, v]) => v)])
+          }
           else if (r._state === 'changed') DB.run(`UPDATE ${cfg.table} SET ${saveCols.map((c) => `${c.field} = ?`).join(', ')} WHERE id = ?`, [...saveCols.map((c) => val(c, r)), r.id])
           else if (r._state === 'deleted' && r.id) cfg.onDeleteRow ? cfg.onDeleteRow(r) : DB.run(`DELETE FROM ${cfg.table} WHERE id = ?`, [r.id])
         }

@@ -287,26 +287,52 @@ const Engine = {
     return { ...r, kind: 'present', status: 'حضور' }
   },
 
-  isPosted(date) {
-    return !!DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [date, date])
+  // a day is posted per employee (Apex posts «أرقام الموظفين» من/إلى); without a code: posted for anyone
+  isPosted(date, code = null) {
+    return code == null
+      ? !!DB.one('SELECT 1 FROM posted_attendance WHERE date = ? LIMIT 1', [date])
+      : !!DB.one('SELECT 1 FROM posted_attendance pa JOIN employees e ON e.id = pa.employee_id WHERE e.code = ? AND pa.date = ? LIMIT 1', [String(code), date])
+  },
+  // employee ids for an optional «أرقام الموظفين» range (null = everyone)
+  codeRangeIds(cf, ct) {
+    if (cf == null && ct == null) return null
+    return DB.all('SELECT id FROM employees WHERE CAST(code AS INTEGER) BETWEEN ? AND ?', [cf ?? 0, ct ?? 1e12]).map((e) => e.id)
+  },
+  // punches in the period not yet frozen — «عدد الحركات غير المرحلة»
+  unpostedCount(from, to, cf = null, ct = null) {
+    const range = cf == null && ct == null ? '' : 'AND CAST(e.code AS INTEGER) BETWEEN ? AND ?'
+    return DB.one(`SELECT COUNT(*) AS n FROM punches p JOIN employees e ON e.code = p.emp_code
+      WHERE p.ts >= ? AND p.ts < ? ${range}
+        AND NOT EXISTS (SELECT 1 FROM posted_attendance pa WHERE pa.employee_id = e.id AND pa.date = substr(p.ts, 1, 10))`,
+    [from, this.addDays(to, 1), ...(range ? [cf ?? 0, ct ?? 1e12] : [])]).n
   },
 
-  // «ترحيل»: freeze the computed days of a period
-  post(from, to) {
-    const rows = this.compute({ from, to })
+  // «ترحيل»: freeze the computed days of a period (already-frozen days come back unchanged, so re-posting is harmless)
+  post(from, to, { employeeIds = null, onProgress = null } = {}) {
+    const rows = this.compute({ from, to, employeeIds })
     DB.run('BEGIN')
-    for (const r of rows) {
+    rows.forEach((r, i) => {
       const { emp, ...data } = r
       DB.run('INSERT OR REPLACE INTO posted_attendance (employee_id, date, data) VALUES (?, ?, ?)', [emp.id, r.date, JSON.stringify(data)])
-    }
+      if (onProgress && i % 200 === 0) onProgress(i / rows.length)
+    })
     DB.run('INSERT INTO posted_periods (from_date, to_date) VALUES (?, ?)', [from, to])
     DB.run('COMMIT')
     return rows.length
   },
-  unpost(periodId) {
-    const p = DB.one('SELECT * FROM posted_periods WHERE id = ?', [periodId])
-    if (!p) return
-    DB.run('DELETE FROM posted_attendance WHERE date BETWEEN ? AND ?', [p.from_date, p.to_date])
-    DB.run('DELETE FROM posted_periods WHERE id = ?', [periodId])
+  // «الغاء الترحيل» of a period, optionally for some employees only → number of days released
+  unpost(from, to, { employeeIds = null } = {}) {
+    const ids = employeeIds ? `AND employee_id IN (${employeeIds.map(() => '?').join(',') || 'NULL'})` : ''
+    DB.run('BEGIN')
+    DB.run(`DELETE FROM posted_attendance WHERE date BETWEEN ? AND ? ${ids}`, [from, to, ...(employeeIds || [])])
+    const n = DB.one('SELECT changes() AS c').c
+    if (!employeeIds) {
+      // keep the run log truthful: drop / trim runs inside the released period
+      DB.run('DELETE FROM posted_periods WHERE from_date >= ? AND to_date <= ?', [from, to])
+      DB.run('UPDATE posted_periods SET to_date = ? WHERE from_date < ? AND to_date >= ? AND to_date <= ?', [this.addDays(from, -1), from, from, to])
+      DB.run('UPDATE posted_periods SET from_date = ? WHERE from_date >= ? AND from_date <= ? AND to_date > ?', [this.addDays(to, 1), from, to, to])
+    }
+    DB.run('COMMIT')
+    return n
   },
 }

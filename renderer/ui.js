@@ -101,7 +101,7 @@ const UI = {
   },
 
   // Modal dialog in Apex's style; resolves when closed.
-  dialog({ winbar, head, bodyHtml, buttons, width = 440 }) {
+  dialog({ winbar, head, bodyHtml, buttons, width = 440, onOpen = null }) {
     return new Promise((resolve) => {
       const back = this.el(`
         <div class="dlg-backdrop"><div class="dlg" style="width:${width}px">
@@ -120,6 +120,7 @@ const UI = {
         back.querySelector('.btns').appendChild(btn)
       }
       document.body.appendChild(back)
+      onOpen?.(api)
       back.querySelector('input:not([type=radio])')?.focus()
     })
   },

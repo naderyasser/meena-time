@@ -60,7 +60,7 @@ async function storePunches(list, source, deviceId = null, { from = null, to = n
       DB.run("INSERT INTO employees (code, name_ar, name_en, status) VALUES (?, 'موظف جديد', 'New Employee', 'نشط')", [p.code])
       known.add(p.code); created++
     }
-    if (Engine.isPosted(day)) { posted++; continue }
+    if (Engine.isPosted(day, p.code)) { posted++; continue }
     if (DB.one('SELECT 1 FROM web_deleted WHERE emp_code = ? AND ts = ?', [p.code, p.ts])) { dup++; continue } // deleted on the site
     DB.run('INSERT OR IGNORE INTO punches (emp_code, ts, source, device_id) VALUES (?, ?, ?, ?)', [p.code, p.ts, source, deviceId])
     if (DB.one('SELECT changes() AS c').c > 0) added++
@@ -200,7 +200,7 @@ function openViewPunches() {
       const ids = UI.deptIds(dep), like = `%${q}%`
       const emps = DB.all(`SELECT * FROM employees WHERE status = 'نشط' ${ids ? `AND (department_id IN (${ids}) OR section_id IN (${ids}))` : ''}
         AND (? = '' OR code LIKE ? OR name_ar LIKE ?) ORDER BY CAST(code AS INTEGER), code`, [q, like, like])
-      const posted = Engine.isPosted(date)
+      const posted = new Set(DB.all('SELECT employee_id FROM posted_attendance WHERE date = ?', [date]).map((x) => x.employee_id))
       const byCode = {}
       for (const p of DB.all('SELECT * FROM punches WHERE ts >= ? AND ts < ? ORDER BY ts', [date, Engine.addDays(date, 1)])) (byCode[p.emp_code] ||= []).push(p)
       const chk = (on) => `<input type="checkbox" disabled ${on ? 'checked' : ''}>`
@@ -210,7 +210,7 @@ function openViewPunches() {
         const ps = byCode[e.code] || []
         const tr = UI.el(`<tr><td class="sel"></td><td class="center">${UI.esc(e.code)}</td><td>${UI.esc(e.name_ar)}</td>
           <td class="center">${ps[0]?.ts.slice(11, 16) || ''}</td><td class="center">${ps.length > 1 ? ps.at(-1).ts.slice(11, 16) : ''}</td>
-          <td class="center">${chk(posted)}</td><td class="center">${chk(ps.some((p) => p.orig_ts))}</td><td class="center">${chk(ps.some((p) => p.source === 'manual' && !p.orig_ts))}</td></tr>`)
+          <td class="center">${chk(posted.has(e.id))}</td><td class="center">${chk(ps.some((p) => p.orig_ts))}</td><td class="center">${chk(ps.some((p) => p.source === 'manual' && !p.orig_ts))}</td></tr>`)
         tr.addEventListener('mousedown', () => { tb.querySelectorAll('tr').forEach((x) => x.classList.remove('current')); tr.classList.add('current'); current = e })
         tr.addEventListener('dblclick', () => openEditPunches({ empId: e.id, date }, load))
         tb.appendChild(tr)
@@ -258,7 +258,7 @@ function openEditPunches({ empId = null, date = Engine.today() } = {}, onDone = 
       draw()
     }
     function draw() {
-      const posted = Engine.isPosted($('#ep-date').value)
+      const posted = Engine.isPosted($('#ep-date').value, emp()?.code)
       const flag = (on) => `<input type="checkbox" disabled ${on ? 'checked' : ''}>`
       tb.innerHTML = rows.map((r, i) => `<tr data-i="${i}" class="${i === selected ? 'current' : ''}"><td class="sel"></td>
         <td class="center"><input type="text" class="t-in" dir="ltr" maxlength="5" value="${r.in}" ${posted ? 'disabled' : ''}></td>
@@ -278,7 +278,7 @@ function openEditPunches({ empId = null, date = Engine.today() } = {}, onDone = 
       const e = emp(), d = $('#ep-date').value
       if (!e) return UI.message('اختر الموظف')
       if (!d) return UI.message('حدد التاريخ')
-      if (Engine.isPosted(d)) return UI.message('الحركات مرحّلة — الغِ الترحيل أولاً من «الغاء ترحيل الحركات»')
+      if (Engine.isPosted(d, e.code)) return UI.message('الحركات مرحّلة — الغِ الترحيل أولاً من «الغاء ترحيل الحركات»')
       if (rows.some((r) => !okTime(r.in) || !okTime(r.out))) return UI.message('الوقت بصيغة HH:MM')
       if (!(await checkPw())) return
       DB.run('BEGIN')
@@ -306,7 +306,7 @@ function openEditPunches({ empId = null, date = Engine.today() } = {}, onDone = 
     async function delRow() {
       const e = emp(), d = $('#ep-date').value
       if (selected < 0 || !rows[selected]) return UI.message('اختر الحركة')
-      if (Engine.isPosted(d)) return UI.message('الحركات مرحّلة — الغِ الترحيل أولاً')
+      if (Engine.isPosted(d, e.code)) return UI.message('الحركات مرحّلة — الغِ الترحيل أولاً')
       const r = rows[selected]
       if (WebSync.linked && [r.pin, r.pout].some((x) => x?.web_id && x.web_id !== 'dup')) return UI.message('هذه الحركة موجودة على الموقع — احذفها من الموقع وستُحذف هنا عند المزامنة')
       if (!(await checkPw())) return
@@ -331,7 +331,7 @@ async function deletePunchesInPeriod(sources, title) {
     },
   })
   if (!p) return
-  if (DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [p.to, p.from])) return UI.message('الفترة تتداخل مع فترة مرحّلة — الغِ الترحيل أولاً')
+  if (DB.one(`SELECT 1 FROM posted_attendance pa JOIN employees e ON e.id = pa.employee_id WHERE pa.date BETWEEN ? AND ?${p.cf ? ` AND CAST(e.code AS INTEGER) >= ${+p.cf}` : ''}${p.ct ? ` AND CAST(e.code AS INTEGER) <= ${+p.ct}` : ''} LIMIT 1`, [p.from, p.to])) return UI.message('الفترة تتداخل مع فترة مرحّلة — الغِ الترحيل أولاً')
   // while linked, punches already on the site are deleted there (they follow here on the next sync)
   const codes = (p.cf ? ` AND CAST(emp_code AS INTEGER) >= ${+p.cf}` : '') + (p.ct ? ` AND CAST(emp_code AS INTEGER) <= ${+p.ct}` : '')
   const where = `ts BETWEEN ? AND ? AND source IN (${sources.map(() => '?').join(',')})${codes}${WebSync.linked ? " AND (web_id IS NULL OR web_id = 'dup')" : ''}`
@@ -345,19 +345,107 @@ async function deletePunchesInPeriod(sources, title) {
   UI.message(`تم حذف ${n} حركة`)
 }
 
+// Apex «أجازات الموظفين» list (جديد · تعديل · بحث · إهمال · حذف · طباعه · إغلاق) and the
+// «إضافه أجازات الموظفين» dialog: one employee or a whole «مجموعة الموظفين».
 function openLeaves() {
-  openGridWindow({
-    id: 'leaves', title: 'إضافة إجازات لموظف', table: 'leaves', orderBy: 'from_date DESC', width: 780,
-    // Apex: a leave can be given to a whole «مجموعة موظفين» at once
-    extraButtons: [{ key: 'group', label: 'إجازة لمجموعة', icon: 'people', onClick: (ctx) => groupLeave(ctx) }],
-    columns: [
-      { field: 'employee_id', label: 'الموظف', type: 'select', options: empOptions, required: true },
-      { field: 'type_id', label: 'نوع الإجازة', type: 'select', width: 150, options: listOptions('leave') },
-      { field: 'from_date', label: 'من تاريخ', type: 'date', width: 130, required: true },
-      { field: 'to_date', label: 'إلى تاريخ', type: 'date', width: 130, required: true },
-      { field: 'notes', label: 'ملاحظات' },
+  UI.openWindow('leaves', 'أجازات الموظفين', { width: 1000, height: 440 }, (body, win) => {
+    let q = '', current = null
+    const bar = UI.toolbar([
+      { key: 'new', label: 'جديد', icon: 'new', onClick: () => leaveDialog(null, load) },
+      { key: 'edit', label: 'تعديل', icon: 'item', onClick: () => (current ? leaveDialog(current, load) : UI.message('حدد الإجازة من الجدول')) },
+      { key: 'find', label: 'بحث', icon: 'search', onClick: async () => {
+        const v = await UI.dialog({ head: 'بحث', width: 360, bodyHtml: '<div class="fields" style="grid-template-columns:110px 1fr"><label>رقم أو اسم الموظف</label><input type="text" id="lv-s"></div>',
+          buttons: [{ label: 'موافق', icon: 'ok', onClick: (d) => d.close(d.root.querySelector('#lv-s').value.trim()) }, { label: 'الغاء', icon: 'cancel', onClick: (d) => d.close(null) }] })
+        if (v !== null) { q = v; load() }
+      } },
+      { key: 'undo', label: 'إهمال', icon: 'undo', onClick: () => { q = ''; load() } },
+      { key: 'del', label: 'حذف', icon: 'del', onClick: remove },
+      { key: 'print', label: 'طباعه', icon: 'print', onClick: () => UI.printGrid('أجازات الموظفين', wrap) },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const wrap = UI.el(`<div class="grid-wrap"><table class="grid"><thead><tr><th style="width:90px">كود الموظف</th><th>اسم الموظف</th><th style="width:110px">من</th><th style="width:110px">الى</th>
+      <th style="width:60px">المدة</th><th style="width:130px">نوع الأجازة</th><th>الوصف</th></tr></thead><tbody></tbody></table></div>`)
+    body.append(bar, wrap)
+    const tb = wrap.querySelector('tbody')
+    const days = (f, t) => Math.round((new Date(t) - new Date(f)) / 864e5) + 1
+    function load() {
+      const like = `%${q}%`
+      const list = DB.all(`SELECT l.*, e.code, e.name_ar, t.name_ar AS type FROM leaves l JOIN employees e ON e.id = l.employee_id LEFT JOIN lists t ON t.id = l.type_id
+        WHERE (? = '' OR e.code LIKE ? OR e.name_ar LIKE ?) ORDER BY l.from_date DESC, CAST(e.code AS INTEGER)`, [q, like, like])
+      current = null
+      tb.innerHTML = list.map((l) => `<tr data-id="${l.id}"><td class="center">${UI.esc(l.code)}</td><td class="center">${UI.esc(l.name_ar)}</td><td class="center">${l.from_date}</td><td class="center">${l.to_date}</td>
+        <td class="center">${days(l.from_date, l.to_date)}</td><td class="center">${UI.esc(l.type || '')}</td><td>${UI.esc(l.notes || '')}</td></tr>`).join('')
+        || `<tr><td colspan="7" class="empty">${q ? 'لا توجد نتائج' : 'لا توجد إجازات — «جديد» لإضافة إجازة'}</td></tr>`
+      tb.querySelectorAll('tr[data-id]').forEach((tr) => {
+        const l = list.find((x) => x.id === +tr.dataset.id)
+        tr.addEventListener('mousedown', () => { current = l; tb.querySelectorAll('tr').forEach((x) => x.classList.toggle('current', x === tr)) })
+        tr.addEventListener('dblclick', () => leaveDialog(l, load))
+      })
+    }
+    async function remove() {
+      if (!current) return UI.message('حدد الإجازة من الجدول')
+      if (WebSync.blocks('leaves')) return
+      if (!(await UI.confirm(`حذف إجازة ${current.name_ar} (${current.from_date} → ${current.to_date})؟`))) return
+      DB.run('DELETE FROM leaves WHERE id = ?', [current.id])
+      DB.audit('حذف إجازة', `${current.code} — ${current.name_ar}`, `${current.from_date} → ${current.to_date}`)
+      await DB.flush(); load()
+    }
+    load()
+  })
+}
+
+async function leaveDialog(leave, onDone) {
+  if (WebSync.blocks('leaves')) return
+  const emps = DB.all("SELECT id, code, name_ar FROM employees WHERE status = 'نشط' OR id = ? ORDER BY CAST(code AS INTEGER), code", [leave?.employee_id || 0])
+  const groups = DB.all('SELECT id, name_ar FROM employee_groups ORDER BY name_ar')
+  const types = listOptions('leave')()
+  const o = (list, v) => list.map(([k, l]) => `<option value="${k}" ${String(k) === String(v ?? '') ? 'selected' : ''}>${UI.esc(l)}</option>`).join('')
+  const r = await UI.dialog({
+    head: 'إضافه أجازات الموظفين', width: 680,
+    bodyHtml: `<div class="leave-dlg">
+      <div class="who"><label><input type="radio" name="lv-w" value="e" checked> الموظف</label><input type="text" id="lv-code" dir="ltr" value="${UI.esc(emps.find((e) => e.id === leave?.employee_id)?.code || '')}">
+        <select id="lv-emp"><option value=""></option>${o(emps.map((e) => [e.id, e.name_ar]), leave?.employee_id)}</select>
+        <label><input type="radio" name="lv-w" value="g" ${leave ? 'disabled' : ''}> مجموعة الموظفين</label><span></span>
+        <select id="lv-grp" disabled><option value="">إختر</option>${o(groups.map((g) => [g.id, g.name_ar]))}</select></div>
+      <fieldset><legend>الأجازة</legend><div class="fields" style="grid-template-columns:100px 1fr 50px 1fr">
+        <label>تبدأ من <b class="req">*</b></label><input type="date" id="lv-f" value="${leave?.from_date || Engine.today()}"><label>الى</label><input type="date" id="lv-t" value="${leave?.to_date || Engine.today()}">
+        <label>نوع الأجازة</label><select id="lv-type"><option value=""></option>${o(types, leave?.type_id)}</select><span></span><span></span>
+        <label>الوصف</label><textarea id="lv-n" rows="3" style="grid-column:span 3">${UI.esc(leave?.notes || '')}</textarea></div></fieldset></div>`,
+    onOpen: (d) => {
+      const $ = (s) => d.root.querySelector(s)
+      d.root.querySelectorAll('[name=lv-w]').forEach((rb) => rb.addEventListener('change', () => {
+        const g = $('[name=lv-w]:checked').value === 'g'
+        $('#lv-grp').disabled = !g; $('#lv-emp').disabled = $('#lv-code').disabled = g
+      }))
+      $('#lv-code').addEventListener('input', (e) => { const x = emps.find((m) => m.code === e.target.value.trim()); if (x) $('#lv-emp').value = x.id })
+      $('#lv-emp').addEventListener('change', (e) => { $('#lv-code').value = emps.find((m) => m.id === +e.target.value)?.code || '' })
+    },
+    buttons: [
+      { label: 'حفظ', icon: 'save', onClick: (d) => {
+        const $ = (s) => d.root.querySelector(s)
+        const g = $('[name=lv-w]:checked').value === 'g'
+        const f = $('#lv-f').value, t = $('#lv-t').value
+        if (g ? !$('#lv-grp').value : !$('#lv-emp').value) return d.error(g ? 'اختر مجموعة الموظفين' : 'اختر الموظف')
+        if (!f || !t || f > t) return d.error('فترة الإجازة غير صحيحة')
+        d.close({ g, id: +(g ? $('#lv-grp').value : $('#lv-emp').value), f, t, type: +$('#lv-type').value || null, n: $('#lv-n').value.trim() })
+      } },
+      { label: 'إغلاق', icon: 'close', onClick: (d) => d.close(null) },
     ],
   })
+  if (!r) return
+  const ids = r.g ? DB.all("SELECT id FROM employees WHERE group_id = ? AND status = 'نشط'", [r.id]).map((e) => e.id) : [r.id]
+  if (!ids.length) return UI.message('لا يوجد موظفين نشطين في هذه المجموعة')
+  const clash = DB.one(`SELECT e.name_ar FROM leaves l JOIN employees e ON e.id = l.employee_id WHERE l.employee_id IN (${ids.map(() => '?').join(',')})
+    AND l.from_date <= ? AND l.to_date >= ? AND l.id <> ? LIMIT 1`, [...ids, r.t, r.f, leave?.id || 0])
+  if (clash) return UI.message(`توجد إجازة أخرى متداخلة مع هذه الفترة (${clash.name_ar})`)
+  DB.run('BEGIN')
+  if (leave) DB.run('UPDATE leaves SET employee_id = ?, type_id = ?, from_date = ?, to_date = ?, notes = ? WHERE id = ?', [r.id, r.type, r.f, r.t, r.n, leave.id])
+  else for (const id of ids) DB.run('INSERT INTO leaves (employee_id, type_id, from_date, to_date, notes) VALUES (?, ?, ?, ?, ?)', [id, r.type, r.f, r.t, r.n])
+  DB.run('COMMIT')
+  DB.audit(leave ? 'تعديل إجازة' : r.g ? 'إجازة لمجموعة' : 'إضافة إجازة', `${ids.length} موظف`, `${r.f} → ${r.t}`)
+  await DB.flush()
+  onDone?.()
+  UI.message(r.g ? `تمت إضافة الإجازة لـ ${ids.length} موظف` : 'تم الحفظ')
 }
 
 function openPermissions() {
@@ -375,30 +463,68 @@ function openPermissions() {
   })
 }
 
-async function postPunches() {
-  const p = await periodDialog('ترحيل الحركات')
-  if (!p) return
-  if (p.to >= Engine.today()) return UI.message('لا يمكن ترحيل اليوم الحالي أو أيام قادمة')
-  if (DB.one('SELECT 1 FROM posted_periods WHERE from_date <= ? AND to_date >= ? LIMIT 1', [p.to, p.from])) return UI.message('الفترة تتداخل مع فترة مرحّلة سابقاً')
-  const n = Engine.post(p.from, p.to)
-  DB.audit('ترحيل الحركات', `${p.from} → ${p.to}`, `${n} يوم`)
-  await DB.flush()
-  UI.message(`تم ترحيل الحركات من ${p.from} إلى ${p.to}`)
-}
-
-function openUnpost() {
-  openGridWindow({
-    id: 'unpost', title: 'الغاء ترحيل الحركات', table: 'posted_periods', orderBy: 'from_date DESC', width: 520,
-    deleteOnly: true,
-    onDeleteRow: (r) => { Engine.unpost(r.id); DB.audit('الغاء ترحيل', `${r.from_date} → ${r.to_date}`) },
-    help: 'احذف الفترة المرحّلة (زر «حذف») للسماح بتعديل حركاتها.',
-    columns: [
-      { field: 'from_date', label: 'من تاريخ', type: 'readonly' },
-      { field: 'to_date', label: 'إلى تاريخ', type: 'readonly' },
-      { field: 'posted_at', label: 'تاريخ الترحيل', type: 'readonly' },
-    ],
+// Apex «ترحيل الحركات وحساب ساعات العمل» / «الغاء ترحيل الحركات خلال فترة»: optional
+// «أرقام الموظفين» range, the period, a live «عدد الحركات غير المرحلة», a progress bar.
+function openPostWindow(unpost) {
+  const title = unpost ? 'الغاء ترحيل الحركات خلال فترة' : 'ترحيل الحركات وحساب ساعات العمل'
+  UI.openWindow(unpost ? 'unpost' : 'post', title, { width: 780, height: unpost ? 360 : 400 }, (body, win) => {
+    const bar = UI.toolbar([{ key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() }])
+    const view = UI.el(`<div class="post-win">
+      <fieldset><legend>${unpost ? 'إلغاء ترحيل الحركات' : 'ترحيـل البيـانـات'}</legend>
+        <div class="codes"><label><input type="checkbox" id="pw-codes"> أرقـام الموظفيــن</label>
+          <span class="rng" hidden><label>مـن</label><input type="text" id="pw-cf" dir="ltr"><label>إلـى</label><input type="text" id="pw-ct" dir="ltr"></span></div>
+        <fieldset class="per"><legend>الفتـــرة</legend><label>مـــن</label><input type="date" id="pw-from" value="${monthStart()}"><label>إلـــى</label><input type="date" id="pw-to" value="${Engine.addDays(Engine.today(), -1)}"></fieldset>
+        <div class="act">${unpost ? '' : '<label>عدد الحركات غير المرحلة</label><input type="text" id="pw-count" readonly>'}
+          <button id="pw-go">${ICONS[unpost ? 'del' : 'save'] || ''}<span>${unpost ? 'الغاء الترحيل' : 'ترحيـل البيـانـات'}</span></button></div>
+      </fieldset>
+      ${unpost ? '' : '<div class="progress"><div id="pw-bar"></div></div>'}
+    </div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    const read = (quiet) => {
+      const from = $('#pw-from').value, to = $('#pw-to').value
+      if (!from || !to || from > to) { if (!quiet) UI.message('فترة غير صحيحة'); return null }
+      let cf = null, ct = null
+      if ($('#pw-codes').checked) {
+        const f = $('#pw-cf').value.trim(), t = $('#pw-ct').value.trim() || f
+        if (!/^\d+$/.test(f) || !/^\d+$/.test(t) || +t < +f) { if (!quiet) UI.message('أدخل أرقام الموظفين (من رقم إلى رقم)'); return null }
+        cf = +f; ct = +t
+      }
+      return { from, to, cf, ct }
+    }
+    const count = () => { if (unpost) return; const q = read(true); $('#pw-count').value = q ? Engine.unpostedCount(q.from, q.to, q.cf, q.ct) : '' }
+    $('#pw-codes').addEventListener('change', (e) => { $('.rng').hidden = !e.target.checked; count() })
+    view.querySelectorAll('input[type=date], #pw-cf, #pw-ct').forEach((i) => i.addEventListener('input', count))
+    count()
+    $('#pw-go').onclick = async () => {
+      const q = read(); if (!q) return
+      const ids = Engine.codeRangeIds(q.cf, q.ct)
+      if (ids && !ids.length) return UI.message('لا يوجد موظفين بهذه الأرقام')
+      const who = q.cf == null ? '' : ` · أرقام ${q.cf}–${q.ct}`
+      if (unpost) {
+        const n = Engine.unpost(q.from, q.to, { employeeIds: ids })
+        if (!n) return UI.message('لا توجد حركات مرحّلة في هذه الفترة')
+        DB.audit('الغاء ترحيل', `${q.from} → ${q.to}${who}`, `${n} يوم`)
+        await DB.flush()
+        return UI.message('تم الغاء ترحيل الحركات بنجاح.')
+      }
+      if (q.to >= Engine.today()) return UI.message('لا يمكن ترحيل اليوم الحالي أو أيام قادمة')
+      $('#pw-go').disabled = true
+      const barEl = $('#pw-bar'); barEl.style.width = '5%'
+      await new Promise((r) => setTimeout(r, 30))
+      try {
+        const n = Engine.post(q.from, q.to, { employeeIds: ids, onProgress: (f) => { barEl.style.width = `${Math.max(5, f * 100)}%` } })
+        barEl.style.width = '100%'
+        DB.audit('ترحيل الحركات', `${q.from} → ${q.to}${who}`, `${n} يوم`)
+        await DB.flush()
+        count()
+        UI.message('تم حساب ساعات العمل وترحيل الحركات')
+      } finally { $('#pw-go').disabled = false }
+    }
   })
 }
+const postPunches = () => openPostWindow(false)
+const openUnpost = () => openPostWindow(true)
 
 async function purgeEmployee() {
   if (WebSync.blocks('employees')) return
@@ -434,37 +560,4 @@ async function purgeEmployee() {
   DB.audit('الغاء جميع بيانات الموظف', emps.map((e) => `${e.code} — ${e.name_ar}`).join('، '))
   await DB.flush()
   UI.message(`تم حذف جميع بيانات ${emps.length} موظف`)
-}
-
-async function groupLeave(ctx) {
-  if (WebSync.blocks('leaves')) return
-  const groups = DB.all('SELECT id, name_ar FROM employee_groups ORDER BY name_ar')
-  if (!groups.length) return UI.message('عرّف مجموعات الموظفين أولاً من «البيانات الأساسية ← مجموعات الموظفين»')
-  const types = listOptions('leave')()
-  const r = await UI.dialog({
-    head: 'إجازة لمجموعة موظفين', width: 460,
-    bodyHtml: `<div class="fields" style="grid-template-columns:110px 1fr">
-      <label>المجموعة</label><select id="gl-g">${groups.map((g) => `<option value="${g.id}">${UI.esc(g.name_ar)}</option>`).join('')}</select>
-      <label>نوع الإجازة</label><select id="gl-t"><option value=""></option>${types.map(([v, l]) => `<option value="${v}">${UI.esc(l)}</option>`).join('')}</select>
-      <label>من تاريخ</label><input type="date" id="gl-f" value="${Engine.today()}"><label>إلى تاريخ</label><input type="date" id="gl-to" value="${Engine.today()}">
-      <label>ملاحظات</label><input type="text" id="gl-n"></div>`,
-    buttons: [
-      { label: 'حفظ', icon: 'save', onClick: (d) => {
-        const v = (id) => d.root.querySelector(id).value
-        if (!v('#gl-f') || !v('#gl-to') || v('#gl-f') > v('#gl-to')) return d.error('فترة غير صحيحة')
-        d.close({ g: +v('#gl-g'), t: +v('#gl-t') || null, f: v('#gl-f'), to: v('#gl-to'), n: v('#gl-n').trim() })
-      } },
-      { label: 'الغاء', icon: 'cancel', onClick: (d) => d.close(null) },
-    ],
-  })
-  if (!r) return
-  const emps = DB.all("SELECT id FROM employees WHERE group_id = ? AND status = 'نشط'", [r.g])
-  if (!emps.length) return UI.message('لا يوجد موظفين نشطين في هذه المجموعة')
-  DB.run('BEGIN')
-  for (const e of emps) DB.run('INSERT INTO leaves (employee_id, type_id, from_date, to_date, notes) VALUES (?, ?, ?, ?, ?)', [e.id, r.t, r.f, r.to, r.n])
-  DB.run('COMMIT')
-  DB.audit('إجازة لمجموعة', `${emps.length} موظف`, `${r.f} → ${r.to}`)
-  await DB.flush()
-  ctx.reload()
-  UI.message(`تمت إضافة الإجازة لـ ${emps.length} موظف`)
 }

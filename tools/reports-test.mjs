@@ -176,15 +176,41 @@ await ew.locator('.dept-tree .tn', { hasText: 'الدعم' }).click(); await p.w
 check('employees: tree filter «الدعم» → 102 + 104', (await ew.locator('tbody tr').count()) === 2)
 await ew.locator('.toolbar button[data-key=close]').click()
 
-// «إضافة إجازات لموظف» → «إجازة لمجموعة»
+// «مجموعات الموظفين» → «الموظفون» (two lists): add / remove / add all
+await p.evaluate(() => { DB.run("UPDATE employees SET group_id = NULL WHERE code = '103'"); openEmployeeGroups() })
+const gw = win('مجموعات الموظفين'); await gw.locator('tbody tr').first().dblclick(); await p.waitForTimeout(200)
+const mw = win('الموظفون لمجموعة محددة')
+const inGroup = () => p.evaluate(() => DB.all('SELECT code FROM employees WHERE group_id = 1 ORDER BY code').map((e) => e.code).join())
+check('group members: right list = the group, left = employees without a group', (await mw.locator('#gm-in tr[data-id]').count()) === 1 && (await mw.locator('#gm-free tr', { hasText: '103' }).count()) === 1)
+await mw.locator('#gm-free tr', { hasText: '103' }).dblclick(); await p.waitForTimeout(150)
+check('group members: double-click moves an employee into the group', (await inGroup()) === '101,103')
+await mw.locator('#gm-in tr', { hasText: '101' }).click(); await mw.locator('.gm-btns button[data-a=del]').click(); await p.waitForTimeout(150)
+check('group members: «حذف» takes one out', (await inGroup()) === '103')
+await mw.locator('.gm-btns button[data-a=add]').click(); await p.waitForTimeout(100)
+check('group members: «إضافة» with nothing selected asks to pick', /حدد الموظف/.test(await p.locator('.dlg-backdrop .body').last().textContent()))
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click()
+await mw.locator('#gm-free tr', { hasText: '101' }).click(); await mw.locator('.gm-btns button[data-a=add]').click(); await p.waitForTimeout(150)
+check('group members: «إضافة» puts it back', (await inGroup()) === '101,103')
+await mw.locator('.toolbar button[data-key=close]').click(); await gw.locator('.toolbar button[data-key=close]').click()
+
+// «إضافة إجازات» → the dialog's «مجموعة الموظفين» choice
 await p.evaluate(() => Perm.run('الإجراءات/إضافة إجازات لموظف', openLeaves))
-const lw = win('إضافة إجازات لموظف')
-await lw.locator('.toolbar button[data-key=group]').click()
-await p.locator('#gl-g').selectOption('1'); await p.locator('#gl-f').fill('2026-09-21'); await p.locator('#gl-to').fill('2026-09-22')
+const lw = win('أجازات الموظفين')
+await lw.locator('.toolbar button[data-key=new]').click(); await p.waitForTimeout(150)
+await p.locator('[name=lv-w][value=g]').check(); await p.locator('#lv-grp').selectOption('1'); await p.locator('#lv-f').fill('2026-09-21'); await p.locator('#lv-t').fill('2026-09-22')
 await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250)
 check('group leave: added for every active member (101, 103)', /لـ 2 موظف/.test(await p.locator('.dlg-backdrop .body').last().textContent()))
 await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click()
-check('group leave: rows exist', (await p.evaluate(() => DB.one("SELECT COUNT(*) n FROM leaves WHERE from_date = '2026-09-21'").n)) === 2)
+check('group leave: rows exist and are listed', (await p.evaluate(() => DB.one("SELECT COUNT(*) n FROM leaves WHERE from_date = '2026-09-21'").n)) === 2 && (await lw.locator('tbody tr[data-id]').count()) >= 2)
+// edit: double-click → change the end date → saved on the same row
+await lw.locator('tbody tr[data-id]').first().dblclick(); await p.waitForTimeout(150)
+check('leave edit: group choice disabled when editing', await p.locator('[name=lv-w][value=g]').isDisabled())
+await p.locator('#lv-t').fill('2026-09-23'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250)
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click()
+check('leave edit: updated in place', (await p.evaluate(() => DB.one("SELECT COUNT(*) n FROM leaves WHERE to_date = '2026-09-23'").n)) === 1 && (await p.evaluate(() => DB.one('SELECT COUNT(*) n FROM leaves').n)) === 3)
+await lw.locator('tbody tr[data-id]').first().click(); await lw.locator('.toolbar button[data-key=del]').click(); await p.waitForTimeout(150)
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'نعم' }).click(); await p.waitForTimeout(200)
+check('leave delete: removed', (await p.evaluate(() => DB.one('SELECT COUNT(*) n FROM leaves').n)) === 2)
 await lw.locator('.toolbar button[data-key=close]').click()
 
 // «الغاء جميع بيانات الموظف»: a number range + password
