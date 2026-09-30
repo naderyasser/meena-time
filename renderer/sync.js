@@ -117,12 +117,14 @@ const WebSync = {
     return { rules, departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), defaultHolidayList: companies.find((c) => c.default_holiday_list)?.default_holiday_list || '', empByCode }
   },
 
-  // The site's «وقت اهمال الحركات بالدقائق» wins while linked, so the app and the site
-  // drop the same repeat punches (the site's other rules aren't used in its maths yet).
+  // While linked the site's «وقت اهمال الحركات بالدقائق» and «عدد الورديات التي تظهر في
+  // التقارير» win, so both drop the same repeats and show the same ورديات (the site's other
+  // rules aren't used in its maths yet).
   applyRules(r) {
     if (!r) return
     const S = Engine.settings()
     S.ignore_min = +r.ignore_window_minutes || 0
+    if (+r.shifts_in_reports) S.report_shifts = Math.min(4, Math.max(1, +r.shifts_in_reports))
     DB.run("INSERT INTO meta (key, value) VALUES ('sys_settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(S)])
   },
 
