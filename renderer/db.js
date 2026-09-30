@@ -22,11 +22,12 @@ const DB = {
   // leaves, permissions, posting and the audit trail from every year, matched
   // to employees by code) and the old files are kept renamed.
   async open() {
-    this.year = 'main'
-    const bytes = await window.bridge.loadDb('main')
-    if (bytes) {
-      this.db = new this.sql.Database(new Uint8Array(bytes))
+    this.year = (await window.bridge.currentDb?.()) || 'main'
+    const bytes = await window.bridge.loadDb(this.year)
+    if (bytes?.length || this.year !== 'main') {
+      this.db = bytes?.length ? new this.sql.Database(new Uint8Array(bytes)) : new this.sql.Database()
       this.migrate()
+      if (!bytes?.length) await this.flush()
       return
     }
     const years = (await window.bridge.listDbs()).sort()

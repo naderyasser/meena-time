@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '1.1.5'
+const VERSION = '1.2.0'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -25,7 +25,7 @@ const MENUS = [
   { label: 'التقارير', icon: 'm_rep', items: Object.keys(REPORTS).map((r) => [r, () => openReport(r)]) },
   { label: 'الإعدادات', icon: 'm_set', items: [['بيانات المؤسسة', openCompany], ['لائحة الجزاءات', openPenaltyRules],
     ['اعدادات المستخدمين', [['صلاحيات المستخدمين', openRoles], ['إدارة المستخدمين', openUsers]]], ['اعدادات النظام', openSystemSettings], ['الربط بالموقع', openWebLink]] },
-  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
+  { label: 'أدوات', icon: 'm_tools', items: [['تسجيل المنتج', () => openRegister()], ['نسخة احتياطية', backupNow], ['استرجاع نسخة احتياطية', restoreBackup], ['انشاء قاعدة بيانات', openCreateDb], ['سجل الحركات', openAuditLog], '-', ['تسجيل خروج', logout]] },
   { label: 'مساعدة', icon: 'm_help', items: [['دليل الاستخدام', openGuide], ['عن البرنامج', async () => { const p = await window.bridge.paths(); UI.message(`Meena Time — الإصدار ${VERSION}\nمجلد البيانات: ${p.data}\nالنسخ الاحتياطية: ${p.backups} (نسخة تلقائية يومياً، آخر 30 نسخة)`) }]] },
 ]
 
@@ -34,7 +34,7 @@ const Session = (window.Session = { userId: null, username: '', admin: false, pe
 
 function setCaption() {
   document.getElementById('caption-text').textContent =
-    `Meena Time Ver. ${VERSION} (${licence.ok ? licence.edition : 'Trial'}) ${licence.ok ? 'Registered' : 'Unregistered'}`
+    `Meena Time Ver. ${VERSION} (${licence.ok ? licence.edition : 'Trial'}) ${licence.ok ? 'Registered' : 'Unregistered'}${DB.year !== 'main' ? ` — ${DB.year}` : ''}`
 }
 
 function buildMenu() {
@@ -134,14 +134,18 @@ async function openRegister() {
 }
 
 async function login() {
-  const company = DB.one("SELECT value FROM meta WHERE key = 'company_name'")?.value || 'قاعدة البيانات الرئيسية'
+  const names = (await window.bridge.dbNames?.()) || ['main']
   const last = localStorage.getItem('mt-last-user') || 'أ'
   return UI.dialog({
     winbar: 'تسجيل الدخول | برنامج الحضور والانصراف',
     head: 'شاشة الدخول', width: 470,
+    // another database: remember the choice and restart on it (each database has its own users)
+    onOpen: (d) => d.root.querySelector('#year').addEventListener('change', async (e) => {
+      if (await window.bridge.useDb(e.target.value)) window.bridge.relaunch()
+    }),
     bodyHtml: `
       <div class="fields">
-        <label>قاعدة البيانات</label><select id="year" disabled><option>${UI.esc(company)}</option></select>
+        <label>قاعدة البيانات</label><select id="year" ${names.length > 1 ? '' : 'disabled'}>${names.map((n) => `<option value="${UI.esc(n)}" ${n === DB.year ? 'selected' : ''}>${UI.esc(dbLabel(n))}</option>`).join('')}</select>
         <label>اسم المستخدم</label><input type="text" id="user" value="${UI.esc(last)}">
         <label>كلمة المرور</label><input type="password" id="pass">
         <label>الواجهة</label>
@@ -204,6 +208,41 @@ async function logout() {
   DB.audit('تسجيل خروج', Session.username)
   await DB.flush()
   location.reload()
+}
+
+const dbLabel = (n) => (n === 'main' ? 'قاعدة البيانات الرئيسية' : n)
+
+// Apex «إنشاء قاعدة البيانات»: a new, empty copy of the program's database next to the
+// current one; pick it later from «قاعدة البيانات» on the login screen.
+function openCreateDb() {
+  if (!Session.admin) return UI.message('انشاء قواعد البيانات لمدير النظام فقط')
+  if (!licence.ok) return UI.message('انشاء أكثر من قاعدة بيانات متاح في النسخة المسجلة فقط')
+  UI.openWindow('create-db', 'إنشاء قاعدة البيانات', { width: 760, height: 360 }, (body, win) => {
+    const bar = UI.toolbar([{ key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() }])
+    const view = UI.el(`<div class="create-db"><div class="side">إنشاء قاعدة بيانات جديدة</div>
+      <fieldset><legend>قاعدة بيانات جديدة</legend>
+        <div class="warn">هذه العملية ستؤدي إلى إنشاء نسخة جديدة من قاعدة البيانات</div>
+        <div class="fields"><label>قاعدة البيانات الحالية</label><input type="text" id="cd-cur" readonly value="${UI.esc(dbLabel(DB.year))}">
+          <label>قاعدة البيانات الجديدة</label><input type="text" id="cd-name" maxlength="40">
+          <label>كلمة مرور مدير النظام</label><input type="password" id="cd-pw"></div>
+        <button id="cd-go">${ICONS.save || ''}<span>إنشاء</span></button></fieldset></div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    $('#cd-go').onclick = async () => {
+      const name = $('#cd-name').value.trim()
+      if (!name) return UI.message('اكتب اسم قاعدة البيانات الجديدة')
+      if (/[\\/:*?"<>|.]/.test(name) || /^\d{4}$/.test(name) || name === 'main') return UI.message('اسم قاعدة البيانات غير صالح (لا يحتوي على \\ / : * ? " < > | . وليس سنة من 4 أرقام فقط)')
+      const u = DB.one('SELECT password FROM users WHERE id = ?', [Session.userId])
+      if (!u || !(await checkPassword(u.password, $('#cd-pw').value))) return UI.message('كلمة مرور مدير النظام غير صحيحة')
+      const res = await window.bridge.createDb(name, new Uint8Array(0))
+      if (!res.ok) return UI.message(res.error)
+      DB.audit('انشاء قاعدة بيانات', name)
+      await DB.flush()
+      $('#cd-pw').value = ''
+      const go = await UI.confirm(`تم انشاء قاعدة البيانات «${name}» بنجاح. الانتقال إليها الآن؟ (اسم المستخدم «أ» بدون كلمة مرور)`)
+      if (go && (await window.bridge.useDb(name))) window.bridge.relaunch()
+    }
+  })
 }
 
 async function restoreBackup() {

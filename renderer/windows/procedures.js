@@ -50,6 +50,10 @@ async function storePunches(list, source, deviceId = null, { from = null, to = n
   const known = new Set(DB.all('SELECT code FROM employees').map((e) => e.code))
   let added = 0, dup = 0, unknown = 0, posted = 0, outside = 0, created = 0
   const canCreate = autoCreate && !WebSync.linked
+  // frozen (posted) employee-days, looked up once instead of per punch
+  const days = list.map((p) => p.ts.slice(0, 10)).sort()
+  const frozen = new Set(days.length ? DB.all('SELECT e.code, pa.date FROM posted_attendance pa JOIN employees e ON e.id = pa.employee_id WHERE pa.date BETWEEN ? AND ?',
+    [days[0], days.at(-1)]).map((r) => `${r.code}|${r.date}`) : [])
   DB.run('BEGIN')
   for (const p of list) {
     const day = p.ts.slice(0, 10)
@@ -60,7 +64,7 @@ async function storePunches(list, source, deviceId = null, { from = null, to = n
       DB.run("INSERT INTO employees (code, name_ar, name_en, status) VALUES (?, 'موظف جديد', 'New Employee', 'نشط')", [p.code])
       known.add(p.code); created++
     }
-    if (Engine.isPosted(day, p.code)) { posted++; continue }
+    if (frozen.has(`${p.code}|${day}`)) { posted++; continue }
     if (DB.one('SELECT 1 FROM web_deleted WHERE emp_code = ? AND ts = ?', [p.code, p.ts])) { dup++; continue } // deleted on the site
     DB.run('INSERT OR IGNORE INTO punches (emp_code, ts, source, device_id) VALUES (?, ?, ?, ?)', [p.code, p.ts, source, deviceId])
     if (DB.one('SELECT changes() AS c').c > 0) added++

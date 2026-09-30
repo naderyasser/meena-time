@@ -137,8 +137,8 @@ check('endpoint: nothing re-sent', mock.posted.length === before2)
 
 // ── locked while linked ──
 await menu('البيانات الأساسية', 'الإدارات والأقسام')
-const w = p.locator('.win', { has: p.locator('.cap', { hasText: 'الإدارات والأقسام' }) }).last()
-await w.locator('tbody tr').last().locator('input[data-f="name_ar"]').fill('إدارة جديدة')
+const w = p.locator('.win', { has: p.locator('.cap', { hasText: 'قوائم الأقسام والإدارات' }) }).last()
+await w.locator('.toolbar button', { hasText: 'رئيسي' }).click(); await w.locator('#dw-ar').fill('إدارة جديدة')
 await w.locator('.toolbar button', { hasText: 'حفظ' }).click(); await p.waitForTimeout(300)
 check('locked: saving a department shows the site message', /عدّل هذه البيانات من الموقع/.test(await okMsg()))
 check('locked: nothing saved', !(await n("SELECT COUNT(*) n FROM departments WHERE name_ar = 'إدارة جديدة'")))

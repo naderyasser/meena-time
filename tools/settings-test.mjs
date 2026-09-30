@@ -100,6 +100,8 @@ await p.click('.dlg button:has-text("موافق")'); await p.click('.win:has(.sy
 
 // auto read + post (device read stubbed): reads, stores, posts finished days only
 const res = await p.evaluate(async () => {
+  clearInterval(AutoRead.timer) // the real scheduler (times saved above) must not run in the middle of the test
+  DB.run('DELETE FROM posted_attendance'); DB.run('DELETE FROM posted_periods')
   DB.run('DELETE FROM punches'); DB.run("INSERT INTO devices (id, name, ip, port) VALUES (1, 'جهاز', '10.0.0.5', 4370)")
   const y = Engine.addDays(Engine.today(), -1)
   AutoRead.read = async () => ({ ok: true, punches: [{ code: '1', ts: `${y} 08:00:00` }, { code: '1', ts: `${Engine.today()} 08:00:00` }] })
@@ -132,6 +134,25 @@ const old = mig.u.find((x) => x.username === 'old'), admin = mig.u.find((x) => x
 check('migration: admin → built-in «مدير النظام»', admin?.builtin === 1 && admin.role_id === 1, JSON.stringify(admin))
 check('migration: restricted user → own role with exactly its 2 screens', old && !old.builtin && Object.keys(JSON.parse(old.perms)).sort().join() === 'البيانات الأساسية/الموظفين,التقارير/حالة اليوم', JSON.stringify(old))
 check('migration: running twice creates nothing new', mig.roles === 2, `roles=${mig.roles}`)
+
+// «انشاء قاعدة بيانات»: a second, empty database; pick it at login; the first keeps its data
+await p.evaluate(async () => { DB.run('UPDATE users SET password = ? WHERE id = 1', [await hashPassword('pw1234')]); await DB.flush(); licence = { ok: true, edition: 'Pro' } })
+await p.evaluate(() => openCreateDb()); await p.waitForSelector('.create-db')
+await p.fill('#cd-name', 'فرع جدة'); await p.fill('#cd-pw', 'bad'); await p.click('#cd-go')
+check('create db: wrong admin password refused', await p.isVisible('text=كلمة مرور مدير النظام غير صحيحة')); await p.click('.dlg button:has-text("موافق")')
+await p.fill('#cd-name', '2019'); await p.fill('#cd-pw', 'pw1234'); await p.click('#cd-go')
+check('create db: a bare year name refused (kept for old per-year files)', await p.isVisible('text=غير صالح')); await p.click('.dlg button:has-text("موافق")')
+await p.fill('#cd-name', 'فرع جدة'); await p.click('#cd-go'); await p.waitForSelector('text=تم انشاء قاعدة البيانات')
+await p.click('.dlg button:has-text("لا")')
+await p.fill('#cd-pw', 'pw1234'); await p.click('#cd-go')
+check('create db: same name twice refused', await p.isVisible('text=بنفس اسم')); await p.click('.dlg button:has-text("موافق")')
+check('create db: listed for the login screen', (await p.evaluate(() => window.bridge.dbNames())).join() === 'main,فرع جدة')
+await p.evaluate(() => window.bridge.useDb('فرع جدة')); await p.reload(); await p.waitForSelector('text=شاشة الدخول')
+const other = await p.evaluate(() => ({ y: DB.year, emps: DB.one('SELECT COUNT(*) n FROM employees').n, users: DB.all('SELECT username FROM users').map((u) => u.username).join(), sel: document.querySelector('#year').value, dis: document.querySelector('#year').disabled, cap: document.querySelector('#caption-text').textContent }))
+check('switch db: new database is empty with the default user', other.y === 'فرع جدة' && other.emps === 0 && other.users === 'أ', JSON.stringify(other))
+check('switch db: login shows the database list + caption names it', other.sel === 'فرع جدة' && !other.dis && other.cap.includes('فرع جدة'), JSON.stringify(other))
+await p.evaluate(() => window.bridge.useDb('main')); await p.reload(); await p.waitForSelector('text=شاشة الدخول')
+check('switch back: the main database still has its data', await p.evaluate(() => DB.year === 'main' && DB.one('SELECT COUNT(*) n FROM employees').n === 1))
 
 console.log(`\n${pass} passed, ${fail} failed`)
 await app.close()

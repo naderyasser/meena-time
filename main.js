@@ -12,8 +12,16 @@ const DEMO_DB = process.argv.includes('--demo') ? path.join(__dirname, 'tools', 
 const DEMO = fs.existsSync(DEMO_DB)
 if (DEMO) app.setPath('userData', path.join(app.getPath('appData'), 'Meena Time Demo'))
 const dataDir = () => app.getPath('userData')
-// one database for all years (v1.0); `name` = 'main', or a 4-digit year for a v0.x per-year file
-const dbPath = (name) => path.join(dataDir(), name === 'main' ? 'meena-time.sqlite' : `meena-time-${name}.sqlite`)
+// one database for all years (v1.0); `name` = 'main', a 4-digit year for a v0.x per-year file, or an
+// extra database made from «انشاء قاعدة بيانات» (Apex keeps several: «قاعدة البيانات الحالية/الجديدة»)
+const DB_NAME = /^[^\\/:*?"<>|.]{1,40}$/
+const dbPath = (name) => path.join(dataDir(), name === 'main' ? 'meena-time.sqlite' : /^\d{4}$/.test(name) ? `meena-time-${name}.sqlite` : `meena-time-db-${name}.sqlite`)
+const currentPath = () => path.join(dataDir(), 'current-db.json')
+function currentDb() {
+  try { const n = JSON.parse(fs.readFileSync(currentPath(), 'utf8')).db; if (n === 'main' || (DB_NAME.test(n) && fs.existsSync(dbPath(n)))) return n } catch {}
+  return 'main'
+}
+const namedDbs = () => (fs.existsSync(dataDir()) ? fs.readdirSync(dataDir()).map((f) => f.match(/^meena-time-db-(.+)\.sqlite$/)?.[1]).filter(Boolean).sort() : [])
 const licencePath = () => path.join(dataDir(), 'licence.key')
 
 function createWindow() {
@@ -37,6 +45,21 @@ ipcMain.handle('db:list', () =>
   fs.existsSync(dataDir())
     ? fs.readdirSync(dataDir()).map((f) => f.match(/^meena-time-(\d{4})\.sqlite$/)?.[1]).filter(Boolean)
     : [])
+ipcMain.handle('db:names', () => ['main', ...namedDbs()])
+ipcMain.handle('db:current', () => currentDb())
+ipcMain.handle('db:use', (_e, name) => {
+  if (name !== 'main' && !namedDbs().includes(name)) return false
+  fs.writeFileSync(currentPath(), JSON.stringify({ db: name }))
+  return true
+})
+// a new, empty database file (the renderer fills it with the default setup on first open)
+ipcMain.handle('db:create', (_e, name, bytes) => {
+  name = String(name || '').trim()
+  if (name === 'main' || /^\d{4}$/.test(name) || !DB_NAME.test(name)) return { ok: false, error: 'اسم قاعدة البيانات غير صالح' }
+  if (fs.existsSync(dbPath(name))) return { ok: false, error: 'لا يمكن انشاء قاعدة بيانات بنفس اسم قاعدة بيانات اخري' }
+  fs.writeFileSync(dbPath(name), Buffer.from(bytes))
+  return { ok: true }
+})
 ipcMain.handle('db:load', (_e, year) => (fs.existsSync(dbPath(year)) ? fs.readFileSync(dbPath(year)) : null))
 // after merging v0.x per-year files into the main DB, keep them renamed (never deleted)
 ipcMain.handle('db:retire', (_e, year) => {
@@ -98,7 +121,7 @@ function dailyBackup() {
     const dir = path.join(dataDir(), 'backups')
     fs.mkdirSync(dir, { recursive: true })
     const stamp = new Date().toISOString().slice(0, 10)
-    for (const f of fs.readdirSync(dataDir()).filter((f) => /^meena-time(-\d{4})?\.sqlite$/.test(f))) {
+    for (const f of fs.readdirSync(dataDir()).filter((f) => /^meena-time(-\d{4}|-db-.+)?\.sqlite$/.test(f))) {
       const dest = path.join(dir, f.replace('.sqlite', `-${stamp}.sqlite`))
       if (!fs.existsSync(dest)) fs.copyFileSync(path.join(dataDir(), f), dest)
     }
@@ -161,7 +184,8 @@ ipcMain.handle('file:pdf', async (e, name, html) => {
 
 // ── link with the web version (Frappe REST, token auth) ──
 // Kept in its own file (not the database) so backups never carry the API secret.
-const webPath = () => path.join(dataDir(), 'web-link.json')
+// the site link belongs to one database: an extra database starts unlinked
+const webPath = () => { const n = currentDb(); return path.join(dataDir(), n === 'main' ? 'web-link.json' : `web-link-db-${n}.json`) }
 function readWeb() {
   try {
     const c = JSON.parse(fs.readFileSync(webPath(), 'utf8'))

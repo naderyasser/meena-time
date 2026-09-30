@@ -443,3 +443,13 @@ table.rep.month-grid td.sig { width: 70px; }
 .leave-dlg .fields label { color: #0b3fa8; }
 .leave-dlg .req { color: #d11; }
 .post-win .rng[hidden] { display: none; }
+/* Apex «إنشاء قاعدة البيانات» */
+.create-db { display: flex; gap: 10px; padding: 8px 12px; }
+.create-db .side { width: 200px; background: #1e88e5; color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; }
+.create-db fieldset { flex: 1; border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 10px; }
+.create-db legend { color: #222; padding: 0 6px; border: 1px solid #f0a830; border-radius: 4px; background: #fff; }
+.create-db .warn { color: #8b0000; font-weight: bold; }
+.create-db .fields { grid-template-columns: 170px 1fr; gap: 8px 10px; }
+.create-db .fields label { color: #0b3fa8; }
+.create-db input { text-align: center; }
+.create-db #cd-go { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 6px 20px; border: 1px solid #0b3fa8; background: #fff; cursor: pointer; }

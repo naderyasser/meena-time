@@ -44,7 +44,7 @@ await time('import: 10,000-line punch file (parse + store + save)', async () => 
   const lines = []
   for (let i = 0; i < 10000; i++) lines.push(`  ${1001 + (i % 200)}\t2026-10-${String(1 + (i % 28)).padStart(2, '0')} ${String(8 + (i % 9)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00\t1\t0`)
   const t0 = performance.now(); const msg = await storePunches(parsePunchFile(lines.join('\n')), 'file')
-  return { ms: performance.now() - t0, info: `(${msg.slice(0, 40)})` }
+  return { ms: performance.now() - t0, info: `(${msg.text.slice(0, 40)})` }
 })
 await time('posting: 200 employees × 1 month (snapshot + save)', async () => { const t0 = performance.now(); Engine.post('2026-07-01', '2026-07-31'); await DB.flush(); return { ms: performance.now() - t0 } })
 await time('report after posting: 1 month (from snapshots)', async () => { const t0 = performance.now(); const r = Engine.compute({ from: '2026-07-01', to: '2026-07-31' }); return { ms: performance.now() - t0, info: `(${r.length} rows)` } })
