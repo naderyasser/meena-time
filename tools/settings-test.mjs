@@ -78,6 +78,16 @@ await setS({ first_last: 1 })
 r = await row(D2)
 check('first-in-last-out: in 08:00 out 17:00, no early', r.in === '08:00' && r.out === '17:00' && r.early === 0 && r.late === 0, JSON.stringify(r))
 
+// Apex: a closed period missing a punch counts its whole duration as تأخير
+await setS({ first_last: 0 })
+await setPunches(D2, ['08:00', '12:00', '13:05'])
+r = await row(D2)
+check('two periods, period 2 has no check-out → its 4 h count as late', r.kind === 'present' && r.late === 240, JSON.stringify(r))
+await setPunches(D2, ['12:00', '13:00', '17:00'])
+r = await row(D2)
+check('period 1 has no check-in → its 4 h count as late', r.late === 240, JSON.stringify(r))
+await setS({})
+
 // open shift (8 h required): punches pair into periods; hours still owed show as تأخير
 await p.evaluate(() => {
   DB.run("INSERT INTO shift_groups (id, name_ar, open_shift) VALUES (2, 'مفتوح', 1)")

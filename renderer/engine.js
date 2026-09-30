@@ -233,13 +233,16 @@ const Engine = {
     const permRanges = perms.map((p) => [this.toMin(p.from_time), this.toMin(p.to_time)])
     const covered = (a, b) => permRanges.some(([pf, pt]) => pf <= a % 1440 && pt >= b % 1440)
     const r = { ...base, windows: [], scheduled }
+    // minutes into «today» (a later date: nothing has passed yet; an earlier one: everything)
+    const nowMin = date < today ? Infinity : date > today ? -Infinity : new Date().getHours() * 60 + new Date().getMinutes()
     let anyIn = false, anyWaiting = false
     for (const w of windows) {
       const wi = take(w.start_in, w.end_in, false)
       const wo = take(w.start_out, w.end_out, true)
-      const x = { in: wi, out: wo, late: 0, early: 0, ot: 0, check_in: w.check_in, check_out: w.check_out }
+      const x = { in: wi, out: wo, late: 0, early: 0, ot: 0, check_in: w.check_in, check_out: w.check_out, end_out: w.end_out }
       if (wi == null) {
-        if (date >= today) anyWaiting = true
+        // still inside the check-in window → في الانتظار; once it has passed with no punch → غياب (as Apex)
+        if (nowMin <= w.end_in) anyWaiting = true
       } else {
         anyIn = true
         if (wi > w.check_in + (w.late_min || 0) && !covered(w.check_in, wi)) x.late = wi - w.check_in
@@ -250,6 +253,13 @@ const Engine = {
         x.ot = (e.ot_before ? Math.max(0, w.check_in - wi) : 0) + (e.ot_after && wo != null ? Math.max(0, wo - w.check_out) : 0)
       }
       r.windows.push(x)
+    }
+    // Apex: on a day with a check-in, a period that closed (its «نهاية الانصراف» passed) missing its
+    // check-in or check-out was not worked — its whole duration counts as تأخير
+    if (anyIn) for (const x of r.windows) {
+      if ((x.in == null || x.out == null) && nowMin > x.end_out && !covered(x.check_in, x.check_out)) {
+        x.late = Math.max(0, x.check_out - x.check_in); x.early = 0; x.incomplete = true
+      }
     }
     const first = r.windows.find((x) => x.in != null)
     const lastOut = [...r.windows].reverse().find((x) => x.out != null)
