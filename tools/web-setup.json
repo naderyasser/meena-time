@@ -1,6 +1,6 @@
 {
  "company": [
-  "شركة عثمان وعبد الرحمن القرعاوي التجارية"
+  "شركة تجريبية للتقنية"
  ],
  "departments": [
   {
@@ -10,79 +10,79 @@
    "is_group": 1
   },
   {
-   "name": "الحسابات - القرعاوي 1",
+   "name": "الحسابات",
    "department_name": "الحسابات",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "التسويق - القرعاوي 1",
+   "name": "التسويق",
    "department_name": "التسويق",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "مبيعات - القرعاوي 1",
+   "name": "مبيعات",
    "department_name": "مبيعات",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "الشراء - القرعاوي 1",
+   "name": "الشراء",
    "department_name": "الشراء",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "العمليات - القرعاوي 1",
+   "name": "العمليات",
    "department_name": "العمليات",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "الإنتاج - القرعاوي 1",
+   "name": "الإنتاج",
    "department_name": "الإنتاج",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "ارسال - القرعاوي 1",
+   "name": "ارسال",
    "department_name": "ارسال",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "خدمة العملاء - القرعاوي 1",
+   "name": "خدمة العملاء",
    "department_name": "خدمة العملاء",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "الموارد البشرية - القرعاوي 1",
+   "name": "الموارد البشرية",
    "department_name": "الموارد البشرية",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "الإدارة - القرعاوي 1",
+   "name": "الإدارة",
    "department_name": "الإدارة",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "إدارة الجودة - القرعاوي 1",
+   "name": "إدارة الجودة",
    "department_name": "إدارة الجودة",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "البحث و التطوير - القرعاوي 1",
+   "name": "البحث و التطوير",
    "department_name": "البحث و التطوير",
    "parent_department": "جميع الاقسام",
    "is_group": 0
   },
   {
-   "name": "قانوني - القرعاوي 1",
+   "name": "قانوني",
    "department_name": "قانوني",
    "parent_department": "جميع الاقسام",
    "is_group": 0

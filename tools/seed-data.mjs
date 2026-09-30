@@ -36,8 +36,8 @@ const summary = await p.evaluate(async (web) => {
   DB.run('BEGIN')
   // ── company (web) ──
   setMeta('company_name', web.company[0] || 'شركة تجريبية')
-  setMeta('company_name_en', 'Al-Qarawi Trading Co.')
-  setMeta('company_address', 'بريدة - القصيم')
+  setMeta('company_name_en', 'Demo Tech Co.')
+  setMeta('company_address', 'الرياض')
   setMeta('company_phone', '016 000 0000')
 
   // ── departments (web) + a few sections for testing ──
