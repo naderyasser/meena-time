@@ -100,13 +100,25 @@ const UI = {
     })
   },
 
-  // Apex-style letterhead: company (right) · title (centre) · print date/user (left)
+  // Apex Time report header: Arabic company name + activity (right, cyan box) · logo
+  // (centre) · English name + activity (left, cyan box), then the title bar
+  meta(k) { return DB.one('SELECT value FROM meta WHERE key = ?', [k])?.value || '' },
   letterhead(title, sub = '') {
-    const m = (k) => DB.one('SELECT value FROM meta WHERE key = ?', [k])?.value || ''
+    const m = (k) => this.meta(k)
+    const logo = m('company_logo')
+    return `<div class="rep-head apex">
+        <div class="box r"><div class="co">${this.esc(m('company_name'))}</div><div>${this.esc(m('company_activity'))}</div></div>
+        <div class="logo">${logo ? `<img src="${logo}" alt="">` : ''}</div>
+        <div class="box l" dir="ltr"><div class="co">${this.esc(m('company_name_en'))}</div><div>${this.esc(m('company_activity_en'))}</div></div>
+      </div>
+      <div class="rep-title">${this.esc(title)}</div>${sub ? `<div class="rep-sub">${sub}</div>` : ''}`
+  },
+  // Apex report footer: user + print time, then website / phone / fax / email
+  reportFoot() {
+    const m = (k) => this.esc(this.meta(k))
     const now = new Date()
-    return `<div class="rep-head"><div class="lh-r"><div class="co">${this.esc(m('company_name'))}</div><div>${this.esc(m('company_address'))}</div><div dir="ltr">${this.esc(m('company_phone'))}</div></div>
-      <div class="lh-c"><h2>${this.esc(title)}</h2><div class="per">${sub}</div></div>
-      <div class="lh-l"><div class="co-en" dir="ltr">${this.esc(m('company_name_en'))}</div><div>تاريخ الطباعة: ${Engine.iso(now)} ${Engine.hm(now.getHours() * 60 + now.getMinutes())}</div><div>المستخدم: ${this.esc(Session.username)}</div></div></div>`
+    return `<div class="rep-foot"><div class="u"><span>اسم المستخدم : ${this.esc(Session.username)}</span><span dir="ltr">${Engine.iso(now)} ${Engine.hm(now.getHours() * 60 + now.getMinutes())}</span></div>
+      <div class="c" dir="ltr"><span>Website: ${m('company_website')}</span><span>Phone: ${m('company_phone')}</span><span>Fax: ${m('company_fax')}</span><span>Email: ${m('company_email')}</span></div></div>`
   },
   // standalone document (app CSS inlined) for printing / PDF
   docHtml(inner) {

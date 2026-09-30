@@ -207,7 +207,7 @@ const Engine = {
     const covered = (lo, hi) => (hi > lo ? spans.reduce((s, [a, b]) => s + Math.max(0, Math.min(hi, b) - Math.max(lo, a)), 0) : 0)
     const late = first != null ? Math.max(0, first - (start + (w.late_min || 0)) - covered(start, first)) : 0
     const early = last != null ? Math.max(0, end - (w.early_min || 0) - last - covered(last, end)) : 0
-    const r = { ...base, in: first, out: last, late, early, ot: last != null ? Math.max(0, last - end) : 0, worked: first != null && last > first ? last - first : 0, missingOut: ps.length === 1,
+    const r = { ...base, scheduled: end - start, in: first, out: last, late, early, ot: last != null ? Math.max(0, last - end) : 0, worked: first != null && last > first ? last - first : 0, missingOut: ps.length === 1,
       windows: [{ in: first, out: last, late, early }] }
     if (first == null) return { ...r, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }
     return { ...r, kind: 'present', status: late ? 'حضور متأخر' : 'حضور' }
@@ -228,14 +228,15 @@ const Engine = {
       left.splice(left.indexOf(m), 1)
       return m
     }
+    const scheduled = windows.reduce((s, w) => s + Math.max(0, w.check_out - w.check_in), 0)
     const permRanges = perms.map((p) => [this.toMin(p.from_time), this.toMin(p.to_time)])
     const covered = (a, b) => permRanges.some(([pf, pt]) => pf <= a % 1440 && pt >= b % 1440)
-    const r = { ...base, windows: [] }
+    const r = { ...base, windows: [], scheduled }
     let anyIn = false, anyWaiting = false
     for (const w of windows) {
       const wi = take(w.start_in, w.end_in, false)
       const wo = take(w.start_out, w.end_out, true)
-      const x = { in: wi, out: wo, late: 0, early: 0 }
+      const x = { in: wi, out: wo, late: 0, early: 0, ot: 0, check_in: w.check_in, check_out: w.check_out }
       if (wi == null) {
         if (date >= today) anyWaiting = true
       } else {
@@ -244,6 +245,8 @@ const Engine = {
         if (wo != null && wo < w.check_out - (w.early_min || 0) && !covered(wo, w.check_out)) x.early = w.check_out - wo
         if (wo == null && !e.no_punch_out && date < today) r.missingOut = true
         if (wo != null) r.worked += Math.max(0, wo - wi)
+        // this period's own overtime (arrived before / left after it), for the per-shift report
+        x.ot = (e.ot_before ? Math.max(0, w.check_in - wi) : 0) + (e.ot_after && wo != null ? Math.max(0, wo - w.check_out) : 0)
       }
       r.windows.push(x)
     }
@@ -267,6 +270,7 @@ const Engine = {
   },
 
   evalOpen(base, o, pool, e, date, today, S = this.SETTINGS_DEFAULT) {
+    base = { ...base, scheduled: o.required_min || 0 }
     const end = o.extends_next_day ? 1440 + (this.toMin(o.day_end) || 0) : 1440
     const ps = pool.filter((m) => m >= 0 && m < end).sort((a, b) => a - b)
     if (!ps.length) return { ...base, kind: date >= today ? 'waiting' : 'absent', status: date >= today ? 'في الانتظار' : 'غياب' }

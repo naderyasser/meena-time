@@ -12,25 +12,53 @@ async function checkPassword(stored, pw) {
   return (await hashPassword(pw, stored.split('$')[1])) === stored
 }
 
+// «بيانات الشركة» — Apex Time's company screen; everything here prints in the report header/footer
+const COMPANY_FIELDS = [
+  ['company_name', 'اسم الشركة عربى', 'rtl'], ['company_name_en', 'اسم الشركة أجنبى', 'ltr'],
+  ['company_activity', 'اسم النشاط عربى', 'rtl'], ['company_activity_en', 'اسم النشاط أجنبى', 'ltr'],
+  ['company_address', 'العنوان عربى', 'rtl'], ['company_address_en', 'العنوان أجنبى', 'ltr'],
+]
 function openCompany() {
-  UI.dialog({
-    head: 'بيانات المؤسسة', width: 520,
-    bodyHtml: `<div class="fields" style="grid-template-columns:110px 1fr">
-      <label>اسم المؤسسة</label><input type="text" id="co-name" value="${UI.esc(meta('company_name'))}">
-      <label>الاسم بالانجليزية</label><input type="text" id="co-name-en" dir="ltr" value="${UI.esc(meta('company_name_en'))}">
-      <label>العنوان</label><input type="text" id="co-addr" value="${UI.esc(meta('company_address'))}">
-      <label>الهاتف</label><input type="text" id="co-phone" dir="ltr" value="${UI.esc(meta('company_phone'))}"></div>`,
-    buttons: [
-      { label: 'حفظ', icon: 'save', onClick: async (d) => {
-        const v = (id) => d.root.querySelector(id).value.trim()
-        if (!v('#co-name')) return d.error('اسم المؤسسة مطلوب — يظهر في رأس التقارير')
-        setMeta('company_name', v('#co-name')); setMeta('company_name_en', v('#co-name-en'))
-        setMeta('company_address', v('#co-addr')); setMeta('company_phone', v('#co-phone'))
-        await DB.flush()
-        d.close(true)
-      } },
-      { label: 'إغلاق', icon: 'cancel', onClick: (d) => d.close(false) },
-    ],
+  UI.openWindow('company', 'بيانات الشركة', { width: 860, height: 520 }, (body, win) => {
+    let logo = meta('company_logo')
+    const bar = UI.toolbar([
+      { key: 'save', label: 'موافق', icon: 'save', onClick: save },
+      { key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() },
+    ])
+    const inp = (k, dir = 'ltr') => `<input type="text" id="co-${k}" dir="${dir}" value="${UI.esc(meta(k))}">`
+    const form = UI.el(`<div class="company">
+      <div class="side">بيانات الشركة</div>
+      <div class="main">
+        ${COMPANY_FIELDS.map(([k, l, d]) => `<label>${l}</label>${inp(k, d)}`).join('')}
+        <label>الموقع الالكترونى</label>${inp('company_website')}
+        <label>ايميل الشركة</label>${inp('company_email')}
+        <label>التليفون</label>${inp('company_phone')}
+        <div class="aside">
+          <label>الفاكس</label>${inp('company_fax')}
+          <label>الشعار</label><label class="upload"><input type="file" id="co-logo" accept="image/*" hidden><span>Upload</span></label>
+          <div class="logo" id="co-logo-img">${logo ? `<img src="${logo}" alt="">` : ''}</div>
+        </div>
+      </div></div>`)
+    body.append(bar, form)
+    form.querySelector('#co-logo').addEventListener('change', (e) => {
+      const f = e.target.files[0]
+      if (!f) return
+      if (!f.type.startsWith('image/')) return UI.message('الملف ليس صورة صالحة')
+      if (f.size > 1024 * 1024) return UI.message('حجم الشعار كبير (الحد 1 ميجابايت)')
+      const rd = new FileReader()
+      rd.onload = () => { logo = rd.result; form.querySelector('#co-logo-img').innerHTML = `<img src="${logo}" alt="">` }
+      rd.readAsDataURL(f)
+    })
+    async function save() {
+      const v = (k) => form.querySelector(`#co-${k}`).value.trim()
+      if (!v('company_name')) return UI.message('اسم الشركة مطلوب — يظهر في رأس التقارير')
+      if (v('company_email') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('company_email'))) return UI.message('البريد الالكتروني غير صحيح')
+      for (const k of [...COMPANY_FIELDS.map((f) => f[0]), 'company_website', 'company_email', 'company_phone', 'company_fax']) setMeta(k, v(k))
+      setMeta('company_logo', logo || '')
+      DB.audit('بيانات الشركة', 'حفظ')
+      await DB.flush()
+      UI.message('تم حفظ بيانات الشركة')
+    }
   })
 }
 

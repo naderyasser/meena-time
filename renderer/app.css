@@ -252,3 +252,55 @@ body.pdf { background: #fff; overflow: visible; }
 .sys-set .note { font-size: 12px; color: #555; margin-top: 6px; }
 .sys-set .clr { display: flex; align-items: center; gap: 6px; color: #0b3fa8; }
 .sys-set .clr input { width: 34px; height: 20px; padding: 0; border: 1px solid #888; }
+
+/* Apex Time report chrome: cyan company boxes · logo · cyan title bar · footer */
+.rep-head.apex { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 14px; align-items: center; border: 0; margin-bottom: 6px; padding: 0; }
+.rep-head.apex .box { background: #3fe0f0; padding: 6px 10px; text-align: center; font-size: 12px; min-height: 38px; }
+.rep-head.apex .box .co { font-size: 13px; font-weight: bold; }
+.rep-head.apex .logo { text-align: center; }
+.rep-head.apex .logo img { max-height: 48px; max-width: 150px; }
+.rep-title { background: #3fe0f0; text-align: center; font-weight: bold; font-size: 14px; padding: 4px; margin: 4px 0 6px; }
+.rep-sub { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border: 1px solid #000; padding: 4px 8px; font-size: 12px; margin-bottom: 4px; }
+.rep-sub b { font-weight: bold; }
+.rep-foot { margin-top: 14px; font-size: 11px; border-top: 1px solid #000; padding-top: 4px; }
+.rep-foot > div { display: flex; justify-content: space-between; gap: 10px; }
+.rep-foot .c { margin-top: 3px; }
+table.rep td.red, table.rep .red { color: #c00000; }
+table.rep td.green { color: #008000; }
+table.rep tr.day-head td { background: #d9d9d9; font-weight: bold; }
+table.rep tfoot td { font-weight: bold; background: #d9d9d9; color: #7a0000; }
+.rep-emp { page-break-inside: avoid; margin-bottom: 16px; }
+.rep-emp + .rep-emp { page-break-before: always; }
+
+/* «بيانات الشركة» (Apex: blue side panel right, fields left) */
+.company { display: flex; flex-direction: row; flex: 1; min-height: 0; padding: 8px; gap: 10px; }
+.company .side { width: 160px; background: #1a86e0; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.company .main { flex: 1; display: grid; grid-template-columns: 130px 1fr; gap: 8px 10px; align-content: start; position: relative; padding-left: 250px; }
+.company .main > label { color: #0b3fa8; font-weight: bold; align-self: center; }
+.company .main input { text-align: center; }
+.company .aside { position: absolute; left: 0; top: 188px; width: 230px; display: grid; grid-template-columns: 60px 1fr; gap: 8px; }
+.company .aside > label { color: #0b3fa8; font-weight: bold; align-self: center; }
+.company .upload { border: 1px solid #1a3fa8; padding: 4px 8px; cursor: pointer; color: #0b3fa8; font-weight: bold; }
+.company .logo { grid-column: 1 / -1; border: 1px solid #1a3fa8; height: 80px; display: flex; align-items: center; justify-content: center; background: #fff; }
+.company .logo img { max-height: 74px; max-width: 220px; }
+
+/* report filter panel (Apex: «الفتـــرة» + «الموظفـــون» boxes) */
+.rep-filters { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 10px; align-items: flex-start; }
+.rep-filters fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 6px 10px; background: #fff; }
+.rep-filters legend { color: #0b3fa8; font-weight: bold; padding: 0 6px; }
+.rep-filters .fl-per { display: flex; gap: 8px; align-items: center; }
+.rep-filters .fl-per label { color: #0b3fa8; font-weight: bold; }
+.rep-filters .fl-per #r-year { width: 70px; text-align: center; }
+.rep-filters .fl-emp { display: grid; grid-template-columns: auto 220px auto 220px; gap: 5px 10px; align-items: center; }
+.rep-filters .fl-emp label { color: #0b3fa8; font-weight: bold; white-space: nowrap; }
+.rep-filters .fl-emp .codes { display: flex; gap: 6px; align-items: center; }
+.rep-filters .fl-emp .codes input { width: 70px; text-align: center; }
+.rep-filters .trial-note { align-self: center; color: #b00; font-weight: bold; }
+/* «بيان تأخير الموظفين» month grid */
+table.rep.month-grid { font-size: 10px; }
+table.rep.month-grid th { background: #2e7d32; color: #fff; padding: 2px; }
+table.rep.month-grid td.c { width: 16px; padding: 0; height: 16px; }
+table.rep.month-grid td.nm { white-space: nowrap; }
+table.rep.month-grid td.sig { width: 70px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; margin: 6px 0; }
+.legend i { display: inline-block; width: 14px; height: 12px; border: 1px solid #555; margin-left: 4px; vertical-align: middle; }

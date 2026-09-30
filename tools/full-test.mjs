@@ -64,7 +64,7 @@ check('caption: version matches package.json', (await p.locator('#caption-text')
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 12], ['الإعدادات', 5], ['أدوات', 5], ['مساعدة', 2]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 16], ['الإعدادات', 5], ['أدوات', 5], ['مساعدة', 2]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)
@@ -72,14 +72,16 @@ for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراء
 }
 
 // ── 2. settings: company ──────────────────────────────────
-await menu('الإعدادات', 'بيانات المؤسسة'); await snap('company')
-await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(150)
-check('company: name required', /مطلوب/.test(await p.locator('.dlg .err').textContent()))
-await p.locator('#co-name').fill('مستشفى الاختبار'); await p.locator('#co-phone').fill('0112345678')
-await p.locator('.dlg').getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250)
-await menu('الإعدادات', 'بيانات المؤسسة')
-check('company: saved and reloaded', (await p.locator('#co-name').inputValue()) === 'مستشفى الاختبار')
-await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
+await menu('الإعدادات', 'بيانات المؤسسة'); let cw = win('بيانات الشركة'); await snap('company')
+await btn(cw, 'موافق').click(); await p.waitForTimeout(150)
+check('company: name required', /مطلوب/.test(await okMsg()))
+await cw.locator('#co-company_name').fill('مستشفى الاختبار'); await cw.locator('#co-company_phone').fill('0112345678'); await cw.locator('#co-company_activity').fill('خدمات طبية')
+await cw.locator('#co-company_email').fill('bad'); await btn(cw, 'موافق').click(); await p.waitForTimeout(150)
+check('company: bad email rejected', /البريد/.test(await okMsg()))
+await cw.locator('#co-company_email').fill('info@test.sa'); await btn(cw, 'موافق').click(); await p.waitForTimeout(250); await okMsg(); await closeWin(cw)
+await menu('الإعدادات', 'بيانات المؤسسة'); cw = win('بيانات الشركة')
+check('company: saved and reloaded', (await cw.locator('#co-company_name').inputValue()) === 'مستشفى الاختبار' && (await cw.locator('#co-company_email').inputValue()) === 'info@test.sa')
+await closeWin(cw)
 
 // ── 3. base-data grids (add / required / save / edit / undo / delete) ──
 async function gridCrud(title, menuItem, fill, { required = 'مطلوب' } = {}) {
@@ -288,19 +290,20 @@ await btn(w, 'حفظ').click(); await p.waitForTimeout(250); check('permissions:
 // ── 6. reports (all 11) ───────────────────────────────────
 const detailedExpect = { '2026-09-19': 'حضور', '2026-09-20': 'حضور متأخر', '2026-09-21': 'حضور', '2026-09-22': 'إجازة', '2026-09-23': 'عطلة رسمية', '2026-09-24': 'عطلة إسبوعية' }
 const reports = ['مواعيد العمل', 'الموظفين', 'الحركات الغير مكتملة', 'التأخير عن بداية الدوام اليومي', 'التأخير عن الدوام خلال فترة', 'إجازات الموظفين',
-  'الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'الغياب خلال فترة', 'حالة اليوم', 'الحضور والانصراف بالحركات', 'الجزاءات']
+  'الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'الغياب خلال فترة', 'حالة اليوم', 'بيان تأخير الموظفين', 'تأخير وإضافي الشفتات',
+  'الحضور والانصراف بالحركات', 'أذونات الموظفين', 'حركات الأبواب', 'الجزاءات']
 const trialOpen = ['الحضور والانصراف تفصيلي', 'الحضور والانصراف إجمالي', 'حالة اليوم', 'الحضور والانصراف بالحركات']
 for (const r of reports) {
   await menu('التقارير', r)
   if (!trialOpen.includes(r)) { check(`report «${r}» locked in trial`, /المسجلة فقط/.test(await okMsg())); continue }
   const rw = win(r)
   check(`report «${r}» opens (trial)`, await rw.isVisible())
-  await rw.locator('#r-from').fill('2026-09-19'); if (await rw.locator('#r-to').count()) await rw.locator('#r-to').fill('2026-09-24')
-  await btn(rw, 'عرض').click(); await p.waitForTimeout(250)
-  check(`report «${r}»: company header`, (await rw.locator('.rep-head .co').textContent()) === 'مستشفى الاختبار')
+  await rw.locator('#r-from').fill('2026-09-19'); if (await rw.locator('#r-to').count()) await rw.locator('#r-to').fill(r === 'حالة اليوم' ? '2026-09-19' : '2026-09-24')
+  await btn(rw, 'موافق').click(); await p.waitForTimeout(250)
+  check(`report «${r}»: company header`, (await rw.locator('.rep-head .box.r .co').textContent()) === 'مستشفى الاختبار')
   if (r === 'الحضور والانصراف تفصيلي') {
-    const grp = rw.locator('.rep-group', { hasText: '1001' })
-    const rows = await rw.locator('table.rep').first().locator('tbody tr').evaluateAll((trs) => trs.map((tr) => [...tr.children].map((td) => td.textContent)))
+    const grp = rw.locator('.rep-emp .rep-sub', { hasText: '1001' })
+    const rows = await rw.locator('.rep-emp').first().locator('tbody tr').evaluateAll((trs) => trs.map((tr) => { const d = tr.dataset; return [d.date, '', d.in, d.out, d.late, d.early, d.ot, d.worked, d.status] }))
     const got = Object.fromEntries(rows.map((c) => [c[0], c[8]]))
     for (const [d, s] of Object.entries(detailedExpect)) check(`engine: 1001 on ${d} = ${s}`, (got[d] || '').startsWith(s), got[d])
     const r20 = rows.find((c) => c[0] === '2026-09-20')
@@ -313,7 +316,7 @@ for (const r of reports) {
   if (r === 'حالة اليوم') { await snap('report-daystatus'); check('day status: 3 employees', (await rw.locator('table.rep tbody tr').count()) === 3) }
   if (r === 'الحضور والانصراف إجمالي') {
     const row = await rw.locator('table.rep tbody tr', { hasText: '1001' }).first().evaluate((tr) => [...tr.children].map((td) => td.textContent))
-    check('total: 1001 present 3 days, 0 absent, 1 leave', row[2] === '3' && row[3] === '0' && row[4] === '1', row.join('|'))
+    check('total (Apex layout): 1001 — worked hours, 50 min late+early, no absence hours', row[1] === '1001' && /^\d\d:\d\d$/.test(row[5]) && row[6] === '00:50' && row[7] === '', row.join('|'))
     await snap('report-total')
   }
   // print counter: 3 prints then blocked
@@ -486,13 +489,10 @@ await p.locator('.dlg').getByRole('button', { name: 'إغلاق' }).click()
 // detailed report 19..24 for everyone
 const detailed = async () => {
   await menu('التقارير', 'الحضور والانصراف تفصيلي'); const rw = win('الحضور والانصراف تفصيلي')
-  await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'عرض').click(); await p.waitForTimeout(300)
+  await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'موافق').click(); await p.waitForTimeout(300)
   const data = await rw.locator('.report-out').evaluate((out) => {
-    const res = {}; let code = null
-    for (const el of out.querySelectorAll('.rep-group, table.rep tbody tr')) {
-      if (el.classList.contains('rep-group')) code = el.textContent.split(' ')[0]
-      else { const c = [...el.children].map((td) => td.textContent); res[`${code}:${c[0]}`] = c }
-    }
+    const res = {}
+    for (const tr of out.querySelectorAll('tr[data-emp]')) { const d = tr.dataset; res[`${d.emp}:${d.date}`] = [d.date, '', d.in, d.out, d.late, d.early, d.ot, d.worked, d.status] }
     return res
   })
   return [rw, data]
@@ -541,7 +541,7 @@ const addRule = async (v, occ, act, amount) => { const r = lastRow(w); await r.l
 await addRule('تأخير', 1, 'خصم دقائق', null); check('penalties: deduction without amount rejected', /القيمة مطلوبة/.test(await okMsg())); await btn(w, 'إهمال').click()
 await addRule('تأخير', 1, 'إنذار', null); await addRule('تأخير', 2, 'خصم دقائق', 30); await addRule('غياب', 1, 'خصم أيام', 1)
 check('penalties: 3 rules saved', (await rowCount(w)) === 3); await snap('v2-penalty-rules'); await closeWin(w)
-await menu('التقارير', 'الجزاءات'); rw = win('الجزاءات'); await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'عرض').click(); await p.waitForTimeout(300)
+await menu('التقارير', 'الجزاءات'); rw = win('الجزاءات'); await rw.locator('#r-from').fill('2026-09-19'); await rw.locator('#r-to').fill('2026-09-24'); await btn(rw, 'موافق').click(); await p.waitForTimeout(300)
 const pen = await rw.locator('.report-out').textContent()
 check('penalties report: 1st late → إنذار, 2nd late → 30 min, absence → 1 day', /إنذار/.test(pen) && /خصم دقائق/.test(pen) && /خصم أيام/.test(pen), pen.slice(0, 200))
 await snap('v2-penalties'); await closeWin(rw)
