@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('bridge', {
   register: (code) => ipcRenderer.invoke('licence:register', code),
   readDevice: (dev) => ipcRenderer.invoke('device:read', dev),
   pingDevice: (dev) => ipcRenderer.invoke('device:ping', dev),
+  transferDevice: (req, onProgress) => {
+    const h = (_e, p) => onProgress?.(p)
+    ipcRenderer.on('device:transfer-progress', h)
+    return ipcRenderer.invoke('device:transfer', req).finally(() => ipcRenderer.removeListener('device:transfer-progress', h))
+  },
   backup: (year, bytes) => ipcRenderer.invoke('db:backup', year, bytes),
   paths: () => ipcRenderer.invoke('paths'),
   saveFile: (name, bytes, ext) => ipcRenderer.invoke('file:save', name, bytes, ext),

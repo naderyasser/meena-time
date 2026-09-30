@@ -527,6 +527,55 @@ function openPostWindow(unpost) {
     }
   })
 }
+// «نقل بصمات الموظفين»: copy employees + their fingerprints from one device to another,
+// so they need not be enrolled again on a new device. Device user id = employee code.
+function openTransferFingers() {
+  UI.openWindow('transfer-fingers', 'نقل بصمات الموظفين من جهاز الى جهاز', { width: 760, height: 290 }, (body, win) => {
+    const devices = DB.all('SELECT * FROM devices ORDER BY id')
+    const opts = devices.map((d) => `<option value="${d.id}">${UI.esc(d.name)} — ${UI.esc(d.ip || '')}</option>`).join('')
+    const bar = UI.toolbar([{ key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() }])
+    const view = UI.el(`<div class="post-win">
+      <fieldset><legend>نقـل البصمـات</legend>
+        <div class="act"><label>من جهاز</label><select id="tf-from">${opts}</select><label>الى جهاز</label><select id="tf-to">${opts}</select></div>
+        <div class="codes"><label><input type="checkbox" id="tf-codes"> أرقـام الموظفيــن</label>
+          <span class="rng" hidden><label>مـن</label><input type="text" id="tf-cf" dir="ltr"><label>إلـى</label><input type="text" id="tf-ct" dir="ltr"></span></div>
+        <div class="act"><span id="tf-msg"></span><button id="pw-go">${ICONS.save || ''}<span>نقـل البصمـات</span></button></div>
+      </fieldset>
+      <div class="progress"><div id="pw-bar"></div></div>
+    </div>`)
+    body.append(bar, view)
+    const $ = (s) => view.querySelector(s)
+    if (devices.length > 1) $('#tf-to').value = String(devices[1].id)
+    $('#tf-codes').addEventListener('change', (e) => { $('.rng').hidden = !e.target.checked })
+    $('#pw-go').onclick = async () => {
+      if (devices.length < 2) return UI.message('عرّف جهازين على الأقل من «البيانات الأساسية ← تعريف الأجهزة»')
+      const from = devices.find((d) => d.id === +$('#tf-from').value), to = devices.find((d) => d.id === +$('#tf-to').value)
+      if (from.id === to.id) return UI.message('اختر جهازين مختلفين')
+      let sel = null
+      if ($('#tf-codes').checked) {
+        const f = $('#tf-cf').value.trim(), t = $('#tf-ct').value.trim() || f
+        if (!/^\d+$/.test(f) || !/^\d+$/.test(t) || +t < +f) return UI.message('أدخل أرقام الموظفين (من رقم إلى رقم)')
+        sel = { from: +f, to: +t }
+      }
+      const dev = (d) => ({ ip: d.ip, port: +d.port || 4370, comm_key: d.comm_key || 0 })
+      const barEl = $('#pw-bar'); barEl.style.width = '5%'
+      $('#pw-go').disabled = true; $('#tf-msg').textContent = 'جاري الاتصال بالجهازين…'
+      try {
+        const r = await window.bridge.transferDevice({ from: dev(from), to: dev(to), sel }, ({ done, total }) => {
+          barEl.style.width = `${Math.max(5, (done / total) * 100)}%`; $('#tf-msg').textContent = `${done} / ${total}`
+        })
+        if (!r.ok) { barEl.style.width = '0'; $('#tf-msg').textContent = ''; return UI.message(r.error || 'تعذّر نقل البصمات') }
+        barEl.style.width = '100%'
+        const text = r.users ? `تم نقل ${r.users} موظف و ${r.fingers} بصمة` : 'لا يوجد موظفين بهذه الأرقام على الجهاز المصدر'
+        $('#tf-msg').textContent = text
+        DB.audit('نقل البصمات', `${from.name} → ${to.name}${sel ? ` · أرقام ${sel.from}–${sel.to}` : ''}`, text)
+        await DB.flush()
+        UI.message(text)
+      } finally { $('#pw-go').disabled = false }
+    }
+  })
+}
+
 const postPunches = () => openPostWindow(false)
 const openUnpost = () => openPostWindow(true)
 

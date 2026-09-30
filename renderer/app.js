@@ -1,5 +1,5 @@
 // Login → home (4 tiles + trial notice) → Arabic menu bar, as in Apex Time.
-const VERSION = '1.2.0'
+const VERSION = '1.2.1'
 const TRIAL_REPORTS = [
   'الحضور والانصراف تفصيلي',
   'الحضور والانصراف إجمالي',
@@ -16,7 +16,7 @@ const MENUS = [
     ['تعريف الأجهزة', openDevices], ['العطلات الرسمية', openHolidays], ['مواعيد رمضان', openRamadan],
   ] },
   { label: 'الإجراءات', icon: 'm_proc', items: [
-    ['قراءة الحركات (شبكة - ملف)', openReadPunches], ['الغاء الحركات المسحوبة خلال فترة', () => deletePunchesInPeriod(['device', 'file'], 'الغاء الحركات المسحوبة خلال فترة')],
+    ['قراءة الحركات (شبكة - ملف)', openReadPunches], ['نقل بصمات الموظفين بين الأجهزة', openTransferFingers], ['الغاء الحركات المسحوبة خلال فترة', () => deletePunchesInPeriod(['device', 'file'], 'الغاء الحركات المسحوبة خلال فترة')],
     ['عرض الحركات', openViewPunches], '-',
     ['إضافة وتعديل الحركات لموظف', openEditPunches], ['الغاء الحركات المعدلة يدويا', () => deletePunchesInPeriod(['manual'], 'الغاء الحركات المعدلة يدويا')], '-',
     ['إضافة إجازات لموظف', openLeaves], ['إضافة أذونات لموظف', openPermissions], '-',

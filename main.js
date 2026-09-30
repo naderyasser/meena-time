@@ -114,6 +114,10 @@ ipcMain.handle('device:read', async (_e, { ip, port }) => {
   }
 })
 
+// «نقل بصمات الموظفين»: users + fingerprints from one device to another (lib/zk.js).
+ipcMain.handle('device:transfer', (e, { from, to, sel }) =>
+  require('./lib/zk').transfer(from, to, sel, (done, total) => e.sender.send('device:transfer-progress', { done, total })))
+
 // Daily automatic backup on start-up: copy each year's DB to userData/backups,
 // keep the newest 30 copies.
 function dailyBackup() {

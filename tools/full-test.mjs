@@ -4,6 +4,7 @@
 import { _electron as electron } from '/home/frappeuser/tamken3-audit/node_modules/playwright/index.mjs'
 import fs from 'fs'
 import { execFileSync } from 'child_process'
+import { startMockZK } from './mock-zk.mjs'
 
 const ROOT = '/root/meena-time'
 const SHOTS = `${ROOT}/test-shots`
@@ -65,7 +66,7 @@ check('caption: version matches package.json', (await p.locator('#caption-text')
 check('menubar: 6 menus', (await p.locator('#menubar .menu').count()) === 6)
 
 // every menu opens and lists its items
-for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 10], ['التقارير', 16], ['الإعدادات', 7], ['أدوات', 6], ['مساعدة', 2]]) {
+for (const [m, n] of [['البيانات الأساسية', 9], ['الإجراءات', 11], ['التقارير', 16], ['الإعدادات', 7], ['أدوات', 6], ['مساعدة', 2]]) {
   await p.locator('#menubar .menu > button', { hasText: m }).first().click(); await p.waitForTimeout(150)
   check(`menu «${m}» has ${n} items`, (await p.locator('.menu.open .drop button').count()) === n, `got ${await p.locator('.menu.open .drop button').count()}`)
   if (m === 'البيانات الأساسية' || m === 'الإجراءات' || m === 'التقارير') await snap(`menu-${m}`)
@@ -276,6 +277,32 @@ check('read punches: unreachable device shows the red light', (await w.locator('
 await w.locator('.rp-dev').first().check(); await w.locator('#rp-read-dev').click(); await p.waitForTimeout(12000)
 check('read punches: unreachable device → clear error', /تعذّر الاتصال/.test(await w.locator('#rp-msg').textContent()), await w.locator('#rp-msg').textContent())
 await closeWin(w)
+
+// «نقل بصمات الموظفين» against two fake devices (tools/mock-zk.mjs)
+await menu('الإجراءات', 'نقل بصمات الموظفين بين الأجهزة'); w = win('نقل بصمات الموظفين'); await snap('transfer-fingers')
+await w.locator('#pw-go').click(); await p.waitForTimeout(150)
+check('transfer: needs two devices', /جهازين/.test(await okMsg())); await closeWin(w)
+const zkA = await startMockZK({ port: 14390, users: [{ uid: 1, userId: '1001', name: 'موظف 1' }, { uid: 2, userId: '1002', name: 'موظف 2' }, { uid: 3, userId: '1500', name: 'x' }],
+  templates: [{ uid: 1, fid: 0, template: Buffer.alloc(500, 1) }, { uid: 2, fid: 0, template: Buffer.alloc(500, 2) }, { uid: 2, fid: 5, template: Buffer.alloc(500, 3) }] })
+const zkB = await startMockZK({ port: 14391, key: 77 })
+await p.evaluate(async () => { DB.run("INSERT INTO devices (name, ip, port) VALUES ('جهاز أ', '127.0.0.1', 14390)"); DB.run("INSERT INTO devices (name, ip, port, comm_key) VALUES ('جهاز ب', '127.0.0.1', 14391, '77')"); await DB.flush() })
+await menu('الإجراءات', 'نقل بصمات الموظفين بين الأجهزة'); w = win('نقل بصمات الموظفين')
+await w.locator('#tf-from').selectOption({ label: 'جهاز أ — 127.0.0.1' }); await w.locator('#tf-to').selectOption({ label: 'جهاز أ — 127.0.0.1' })
+await w.locator('#pw-go').click(); await p.waitForTimeout(150)
+check('transfer: same device refused', /مختلفين/.test(await okMsg()))
+await w.locator('#tf-to').selectOption({ label: 'جهاز ب — 127.0.0.1' })
+await w.locator('#tf-codes').check(); await w.locator('#tf-cf').fill('1001'); await w.locator('#tf-ct').fill('1002')
+await w.locator('#pw-go').click(); await p.waitForTimeout(1500)
+let tfm = await okMsg()
+check('transfer: range copied with fingers', /تم نقل 2 موظف و 3 بصمة/.test(tfm), tfm)
+check('transfer: target device got exactly those users', zkB.state.users.map((u) => u.userId).sort().join() === '1001,1002' && zkB.state.templates.length === 3)
+check('transfer: progress bar full', (await w.locator('#pw-bar').evaluate((e) => e.style.width)) === '100%')
+await w.locator('#tf-codes').uncheck(); await w.locator('#tf-to').selectOption({ label: 'جهاز المدخل — 127.0.0.1' })
+await w.locator('#pw-go').click(); await p.waitForTimeout(12000)
+check('transfer: unreachable target → clear error', /تعذّر الاتصال/.test(await okMsg()))
+await closeWin(w)
+await p.evaluate(async () => { DB.run("DELETE FROM devices WHERE port IN (14390, 14391)"); await DB.flush() })
+zkA.server.close(); zkB.server.close()
 
 await menu('الإجراءات', 'عرض الحركات'); w = win('عرض الحركات')
 await w.locator('#vp-date').fill('2026-09-19'); await w.locator('#vp-date').dispatchEvent('change'); await p.waitForTimeout(200)

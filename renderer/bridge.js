@@ -36,6 +36,7 @@ if (!window.bridge) {
     webConfig: async () => ({ linked: false }),
     webSetConfig: async () => false,
     webCall: async () => ({ error: 'الربط بالموقع يعمل في البرنامج المثبّت فقط' }),
+    transferDevice: async () => ({ ok: false, error: 'نقل البصمات يعمل في البرنامج المثبّت فقط' }),
     savePdf: async () => ({ ok: false, error: 'حفظ PDF يعمل في البرنامج المثبّت فقط' }),
     paths: async () => ({ data: '(preview) preview-data/', backups: '(preview) —' }),
     readDevice: async () => ({ ok: false, error: 'القراءة من الجهاز تعمل في البرنامج المثبّت فقط (غير متاحة في المعاينة)' }),
