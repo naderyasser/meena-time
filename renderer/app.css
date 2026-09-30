@@ -347,3 +347,30 @@ table.rep.month-grid td.sig { width: 70px; }
 .read-punches .cols > fieldset > button svg { width: 22px; height: 22px; }
 .read-punches .cols > fieldset > button span { white-space: nowrap; font-weight: bold; color: #0b3fa8; }
 .read-punches .fbtns svg { width: 18px; height: 18px; }
+
+/* Apex «الاقسام» tree beside a list */
+.with-tree { display: flex; flex: 1; min-height: 0; gap: 6px; padding: 4px 6px; }
+.with-tree > .main-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.dept-tree { width: 190px; border: 1px solid #f0a830; border-radius: 6px; background: #fff; overflow: auto; padding: 4px 6px; }
+.dept-tree .tt { color: #0b3fa8; font-weight: bold; font-size: 15px; border-bottom: 1px solid #f0a830; margin-bottom: 4px; }
+.dept-tree ul { list-style: none; margin: 0; padding-right: 12px; }
+.dept-tree > ul { padding-right: 0; }
+.dept-tree .tn { display: inline-block; cursor: pointer; color: #1a3fa8; padding: 2px 6px; border-radius: 3px; }
+.dept-tree .tn.on { background: #1a86e0; color: #fff; }
+.ctx-menu { position: fixed; background: #fff; border: 1px solid #889; box-shadow: 2px 2px 6px rgba(0,0,0,.25); z-index: 95000; min-width: 190px; }
+.ctx-menu button { display: block; width: 100%; text-align: right; background: none; border: 0; padding: 6px 12px; font: inherit; cursor: pointer; }
+.ctx-menu button:hover { background: #dbeaff; }
+.day-nav { display: flex; align-items: center; gap: 8px; padding: 4px; background: #e8ecf1; border: 1px solid #c8d0d8; }
+.day-nav #vp-day { color: #c00; font-weight: bold; margin-left: auto; }
+.day-nav button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; }
+.with-tree .band, .edit-punches .band { background: #1a86e0; color: #fff; text-align: center; font-weight: bold; padding: 3px; }
+.bar-search { margin-inline-start: auto; width: 220px; font: inherit; padding: 3px 6px; border: 1px solid #aeb7c0; }
+.edit-punches { display: flex; flex-direction: column; gap: 8px; padding: 8px; flex: 1; min-height: 0; }
+.edit-punches fieldset { border: 1px solid #f0a830; border-radius: 6px; margin: 0; padding: 6px 10px; background: #fff; }
+.edit-punches legend { color: #0b3fa8; font-weight: bold; }
+.edit-punches .pw { display: flex; gap: 10px; align-items: center; }
+.edit-punches .pw label { color: #0b3fa8; font-weight: bold; font-size: 15px; }
+.edit-punches .pw input { width: 260px; }
+.edit-punches .times { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.edit-punches .times .grid-wrap { flex: 1; min-height: 120px; }
+.edit-punches .t-in, .edit-punches .t-out { width: 80px; text-align: center; font-weight: bold; }

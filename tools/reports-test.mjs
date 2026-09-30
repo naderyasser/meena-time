@@ -165,6 +165,38 @@ check('unknown number → «موظف جديد» / New Employee + its punches sto
 check('linked to the site → not created (site owns employees)', !ac.six && /غير معرّفة 1/.test(ac.r2), ac.r2)
 check('trial over its employee limit → not created', !ac.seven && /غير معرّفة 1/.test(ac.r3), ac.r3)
 
+// «الموظفين»: right-click → «نقل الموظف الى قسم اخر»
+await p.evaluate(() => Perm.run('البيانات الأساسية/الموظفين', openEmployees))
+let ew = win('الموظفين')
+await ew.locator('tbody tr', { hasText: '104' }).click({ button: 'right' }); await p.locator('.ctx-menu button').click()
+await p.locator('#mv-tree .tn', { hasText: 'الدعم' }).click(); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(250)
+const mv = await p.evaluate(() => DB.one("SELECT department_id, section_id FROM employees WHERE code = '104'"))
+check('employees: move to section «الدعم» → department = its parent, section = الدعم', mv.department_id === 1 && mv.section_id === 3, JSON.stringify(mv))
+await ew.locator('.dept-tree .tn', { hasText: 'الدعم' }).click(); await p.waitForTimeout(150)
+check('employees: tree filter «الدعم» → 102 + 104', (await ew.locator('tbody tr').count()) === 2)
+await ew.locator('.toolbar button[data-key=close]').click()
+
+// «إضافة إجازات لموظف» → «إجازة لمجموعة»
+await p.evaluate(() => Perm.run('الإجراءات/إضافة إجازات لموظف', openLeaves))
+const lw = win('إضافة إجازات لموظف')
+await lw.locator('.toolbar button[data-key=group]').click()
+await p.locator('#gl-g').selectOption('1'); await p.locator('#gl-f').fill('2026-09-21'); await p.locator('#gl-to').fill('2026-09-22')
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'حفظ' }).click(); await p.waitForTimeout(250)
+check('group leave: added for every active member (101, 103)', /لـ 2 موظف/.test(await p.locator('.dlg-backdrop .body').last().textContent()))
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click()
+check('group leave: rows exist', (await p.evaluate(() => DB.one("SELECT COUNT(*) n FROM leaves WHERE from_date = '2026-09-21'").n)) === 2)
+await lw.locator('.toolbar button[data-key=close]').click()
+
+// «الغاء جميع بيانات الموظف»: a number range + password
+await p.evaluate(async () => { const { hashPassword: h } = window; DB.run('UPDATE users SET password = ? WHERE id = 1', [await hashPassword('pw1234')]) })
+await p.evaluate(() => { purgeEmployee() })
+await p.locator('#pe-from').fill('5000'); await p.locator('#pe-to').fill('6000')
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'الغاء البيانات' }).click(); await p.waitForTimeout(150)
+await p.locator('#ap-pw').fill('pw1234'); await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'موافق' }).click(); await p.waitForTimeout(150)
+await p.locator('.dlg-backdrop').last().getByRole('button', { name: 'نعم' }).click(); await p.waitForTimeout(250)
+check('purge range 5000–6000: the auto-created «موظف جديد» and its punches removed', /تم حذف جميع بيانات 1 موظف/.test(await p.locator('.dlg-backdrop .body').last().textContent()) &&
+  (await p.evaluate(() => DB.one("SELECT COUNT(*) n FROM punches WHERE emp_code = '5000'").n)) === 0)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 await app.close()
 fs.rmSync(UD, { recursive: true, force: true })

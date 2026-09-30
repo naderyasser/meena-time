@@ -7,7 +7,7 @@ const EMP_STATUSES = ['نشط', 'غير نشط', 'موقوف', 'منتهي']
 function openEmployees() {
   UI.openWindow('employees', 'الموظفين', { width: 860, height: 420 }, (body, win) => {
     let current = null
-    let q = ''
+    let q = '', dep = null
     const bar = UI.toolbar([
       { key: 'help', label: 'مساعدة', icon: 'help', onClick: () => UI.message('«جديد» لإضافة موظف، واضغط مرتين على الموظف لتعديله.') },
       { key: 'new', label: 'جديد', icon: 'new', onClick: () => openEmployeeForm(null, load) },
@@ -23,7 +23,13 @@ function openEmployees() {
       <th style="width:70px">الكود</th><th class="sorted">اسم الموظف</th><th>الإدارة</th><th>القسم</th>
       <th>الدوام</th><th style="width:70px">الحالة</th></tr></thead><tbody></tbody></table></div>`)
     const count = UI.el('<div style="padding:2px 8px;font-size:12px;color:#333"></div>')
-    body.append(bar, wrap, count)
+    // Apex: the departments tree beside the list filters it; right-click moves an employee
+    const tree = UI.deptTree((id) => { dep = id; load() })
+    const main = UI.el('<div class="main-col"></div>')
+    main.append(wrap, count)
+    const layout = UI.el('<div class="with-tree"></div>')
+    layout.append(main, tree)
+    body.append(bar, layout)
     const tbody = wrap.querySelector('tbody')
 
     function load() {
@@ -31,7 +37,8 @@ function openEmployees() {
       const rows = DB.all(`SELECT e.*, d.name_ar AS dep, s.name_ar AS sec, g.name_ar AS shift
         FROM employees e LEFT JOIN departments d ON d.id = e.department_id LEFT JOIN departments s ON s.id = e.section_id
         LEFT JOIN shift_groups g ON g.id = e.shift_group_id
-        WHERE (? = '' OR e.code LIKE ? OR e.name_ar LIKE ? OR e.name_en LIKE ?) ORDER BY CAST(e.code AS INTEGER), e.code`, [q, like, like, like])
+        WHERE (? = '' OR e.code LIKE ? OR e.name_ar LIKE ? OR e.name_en LIKE ?) ${dep ? `AND (e.department_id IN (${UI.deptIds(dep)}) OR e.section_id IN (${UI.deptIds(dep)}))` : ''}
+        ORDER BY CAST(e.code AS INTEGER), e.code`, [q, like, like, like])
       tbody.innerHTML = ''
       current = null
       for (const r of rows) {
@@ -39,11 +46,34 @@ function openEmployees() {
           <td>${UI.esc(r.dep)}</td><td>${UI.esc(r.sec)}</td><td>${UI.esc(r.shift)}</td><td class="center">${UI.esc(r.status)}</td></tr>`)
         tr.addEventListener('mousedown', () => { tbody.querySelectorAll('tr').forEach((x) => x.classList.remove('current')); tr.classList.add('current'); current = r })
         tr.addEventListener('dblclick', () => openEmployeeForm(r, load))
+        tr.addEventListener('contextmenu', (ev) => { ev.preventDefault(); tr.dispatchEvent(new MouseEvent('mousedown')); empMenu(ev, r) })
         tbody.appendChild(tr)
       }
       count.textContent = `عدد الموظفين: ${rows.length}`
     }
 
+    function empMenu(ev, r) {
+      document.querySelector('.ctx-menu')?.remove()
+      const m = UI.el('<div class="ctx-menu"><button>نقل الموظف الى قسم اخر</button></div>')
+      Object.assign(m.style, { left: ev.clientX + 'px', top: ev.clientY + 'px' })
+      m.querySelector('button').onclick = () => { m.remove(); moveEmployee(r) }
+      document.body.appendChild(m)
+      setTimeout(() => document.addEventListener('mousedown', function off(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', off) } }), 0)
+    }
+    async function moveEmployee(r) {
+      if (WebSync.blocks('employees')) return
+      if (!Perm.can(win.permKey, 'edit')) return UI.message('غير مصرح لك بهذا الإجراء')
+      let picked = null
+      const pending = UI.dialog({ head: 'الأقسام والإدارات', width: 320, bodyHtml: '<div id="mv-tree"></div>',
+        buttons: [{ label: 'موافق', icon: 'ok', onClick: (d) => (picked ? d.close(true) : d.error('اختر القسم أو الإدارة')) }, { label: 'الغاء', icon: 'cancel', onClick: (d) => d.close(false) }] })
+      document.querySelector('#mv-tree').appendChild(UI.deptTree((id) => { picked = id }, { title: 'الأقسام والإدارات', all: false }))
+      if (!(await pending)) return
+      const d = DB.one('SELECT * FROM departments WHERE id = ?', [picked])
+      DB.run('UPDATE employees SET department_id = ?, section_id = ? WHERE id = ?', d.parent_id ? [d.parent_id, d.id, r.id] : [d.id, null, r.id])
+      DB.audit('نقل موظف', `${r.code} — ${r.name_ar}`, d.name_ar)
+      await DB.flush()
+      load()
+    }
     async function remove() {
       if (WebSync.blocks('employees')) return
       if (!current) return UI.message('اختر موظفاً')

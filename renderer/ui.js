@@ -212,6 +212,24 @@ const UI = {
     this.selPop = null
   },
 
+  // Apex's «الاقسام» tree: departments with their sections; «الكل» on top. onSelect(id|null)
+  deptTree(onSelect, { title = 'الاقسام', all = true } = {}) {
+    const deps = DB.all('SELECT id, name_ar, parent_id FROM departments ORDER BY name_ar')
+    const node = (d) => {
+      const kids = deps.filter((x) => x.parent_id === d.id)
+      return `<li><span class="tn" data-id="${d.id}">${this.esc(d.name_ar)}</span>${kids.length ? `<ul>${kids.map(node).join('')}</ul>` : ''}</li>`
+    }
+    const el = this.el(`<div class="dept-tree"><div class="tt">${this.esc(title)}</div><ul>${all ? '<li><span class="tn on" data-id="">الكل</span></li>' : ''}${deps.filter((d) => !d.parent_id).map(node).join('')}</ul></div>`)
+    el.addEventListener('click', (e) => {
+      const t = e.target.closest('.tn')
+      if (!t) return
+      el.querySelectorAll('.tn').forEach((x) => x.classList.toggle('on', x === t))
+      onSelect(t.dataset.id ? +t.dataset.id : null, t.textContent)
+    })
+    return el
+  },
+  // a department id → itself + its sections (for filtering employees)
+  deptIds(id) { return id ? [id, ...DB.all('SELECT id FROM departments WHERE parent_id = ?', [id]).map((d) => d.id)] : null },
   confirm(text, head = 'تأكيد') {
     return this.dialog({ head, bodyHtml: `<div style="padding:4px 2px">${this.esc(text)}</div>`, width: 380,
       buttons: [{ label: 'نعم', icon: 'ok', onClick: (d) => d.close(true) }, { label: 'لا', icon: 'cancel', onClick: (d) => d.close(false) }] })

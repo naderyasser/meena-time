@@ -151,6 +151,10 @@ const DB = {
       perms TEXT DEFAULT '{}', builtin INTEGER DEFAULT 0)`)
     addCol('users', 'role_id', 'INTEGER')
     addCol('users', 'full_name', "TEXT DEFAULT ''")
+    // «إضافة وتعديل حركات موظف»: an edited punch keeps the device time it replaced (→ «معدل»);
+    // a note per employee per day
+    addCol('punches', 'orig_ts', 'TEXT')
+    this.db.run('CREATE TABLE IF NOT EXISTS punch_notes (emp_code TEXT NOT NULL, date TEXT NOT NULL, notes TEXT, PRIMARY KEY (emp_code, date))')
     if (!this.one('SELECT 1 FROM roles WHERE id = 1')) this.db.run("INSERT INTO roles (id, name_ar, name_en, builtin) VALUES (1, 'مدير النظام', 'Administrator', 1)")
     for (const u of this.all('SELECT * FROM users WHERE role_id IS NULL')) {
       let role = 1
