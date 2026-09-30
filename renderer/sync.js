@@ -67,6 +67,7 @@ const WebSync = {
       const data = await this.fetchAll()
       const pushed = await this.push(data.empByCode)
       const res = this.apply(data)
+      this.applyRules(data.rules)
       this.setMeta('web_last_sync', `${Engine.today()} ${new Date().toTimeString().slice(0, 8)}`)
       DB.audit('مزامنة مع الموقع', '', `${res.employees} موظف، ${res.punches} حركة جديدة، ${pushed} حركة مرفوعة${res.removed ? `، ${res.removed} حركة حُذفت من الموقع` : ''}`)
       await DB.flush()
@@ -112,7 +113,17 @@ const WebSync = {
     const hl = await Promise.all(holidayLists.map((h) => this.doc('Holiday List', h.name)))
     const empByCode = {}
     for (const e of employees) empByCode[this.codeOf(e)] = e.name
-    return { departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), defaultHolidayList: companies.find((c) => c.default_holiday_list)?.default_holiday_list || '', empByCode }
+    const rules = await this.doc('Attendance Rules Settings', 'Attendance Rules Settings').catch(() => null)
+    return { rules, departments, designations, leaveTypes, projects, egroups, holidayLists: hl, shiftTypes: withWindows, employees, assignments, leaves, perms, checkins, recentIds: new Set(recentIds.map((r) => r.name)), defaultHolidayList: companies.find((c) => c.default_holiday_list)?.default_holiday_list || '', empByCode }
+  },
+
+  // The site's «وقت اهمال الحركات بالدقائق» wins while linked, so the app and the site
+  // drop the same repeat punches (the site's other rules aren't used in its maths yet).
+  applyRules(r) {
+    if (!r) return
+    const S = Engine.settings()
+    S.ignore_min = +r.ignore_window_minutes || 0
+    DB.run("INSERT INTO meta (key, value) VALUES ('sys_settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(S)])
   },
 
   codeOf: (e) => String(e.attendance_device_id || e.name).trim(),
