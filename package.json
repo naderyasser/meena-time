@@ -1,67 +1,12 @@
 {
   "name": "meena-time",
   "productName": "Meena Time",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "برنامج الحضور والانصراف — نسخة سطح المكتب",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "demo": "electron . --demo",
-    "preview": "node tools/preview-server.js"
-  },
   "dependencies": {
     "node-zklib": "^1.3.0",
     "sql.js": "^1.10.3",
     "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
-  },
-  "build": {
-    "appId": "sa.meena.time",
-    "productName": "Meena Time",
-    "copyright": "Meena",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "lib/**",
-      "renderer/**",
-      "build/icon.png",
-      "build/icon.ico",
-      "package.json",
-      "demo/**",
-      "!tools/**",
-      "!preview-data/**"
-    ],
-    "asarUnpack": [],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Meena Time",
-      "installerLanguages": [
-        "ar_SA",
-        "en_US"
-      ],
-      "language": "1025",
-      "artifactName": "Meena-Time-Setup-${version}.exe"
-    }
   }
 }

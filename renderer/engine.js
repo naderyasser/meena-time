@@ -161,7 +161,9 @@ const Engine = {
       } else if (prev.kind === 'open' && prev.open.extends_next_day) consumedUntil = this.toMin(prev.open.day_end) || 0
       for (const date of days) {
         const day = dayIdx[date]
-        if (e.hire_date && date < e.hire_date) continue
+        // before the hire date a day counts only when he actually attended (same rule as the site)
+        const beforeHire = !!(e.hire_date && date < e.hire_date)
+        if (beforeHire && !(byDate[date] || []).length) continue
         const snap = posted[`${e.id}:${date}`]
         if (snap) { rows.push({ ...snap, emp: e, date, day, posted: true }); consumedUntil = snap._consumedUntil ?? -Infinity; continue }
         const gid = groupAt(date)
@@ -190,6 +192,7 @@ const Engine = {
         if (sch.kind === 'windows' && !cfg.groups[gid]?.plain_rule && sch.windows.at(-1).end_out > 1440) consumedUntil = sch.windows.at(-1).end_out - 1440
         if (sch.kind === 'open' && sch.open.extends_next_day) consumedUntil = this.toMin(sch.open.day_end) || 0
         r._consumedUntil = consumedUntil
+        if (beforeHire && r.kind !== 'present') continue
         rows.push(r)
       }
     }

@@ -89,6 +89,8 @@ try {
   let compared = 0, withPunches = 0
   for (const [k, s] of Object.entries(site)) {
     const a = mine[k]
+    // «قبل التعيين» / «بعد ترك العمل»: the site lists the day, the app leaves it out — neither counts it
+    if (s.kind === 'not_employed') { if (a) diffs.kind.push(`${k} site=not_employed app=${a.kind}`); continue }
     if (!a) { diffs.missing.push(k); continue }
     compared++
     const sk = s.kind === 'holiday' && /إسبوعية/.test(s.status) ? 'off' : KIND[s.kind] || s.kind, ak = KIND[a.kind] || a.kind
