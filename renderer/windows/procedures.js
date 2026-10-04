@@ -87,7 +87,7 @@ function openReadPunches() {
     let files = []
     const bar = UI.toolbar([{ key: 'close', label: 'إغلاق', icon: 'close', onClick: () => win.close() }])
     const view = UI.el(`<div class="read-punches">
-      <fieldset class="per"><legend>الفتـــرة</legend><label>مـــن</label><input type="date" id="rp-from" value="${monthStart()}"><label>إلـــى</label><input type="date" id="rp-to" value="${Engine.today()}"></fieldset>
+      <fieldset class="per"><legend>الفتـــرة</legend><label>مـــن</label><input type="date" id="rp-from" value="${monthStart()}"><label>إلـــى</label><input type="date" id="rp-to" value="${Engine.today()}"><label class="rp-allp"><input type="checkbox" id="rp-allp"> كل الفترات</label></fieldset>
       <div class="cols">
         <fieldset class="devs"><legend>سـحب بيانـات الاجـهزة بالـشبكة</legend>
           <div class="grid-wrap"><table class="grid"><thead><tr><th style="width:28px"><input type="checkbox" id="rp-all"></th><th style="width:50px">الرقم</th><th>الجهاز</th><th style="width:40px"></th></tr></thead>
@@ -105,7 +105,10 @@ function openReadPunches() {
     </div>`)
     body.append(bar, view)
     const $ = (s) => view.querySelector(s)
+    // «كل الفترات»: keep every punch stored on the device / in the file, whatever its date
+    $('#rp-allp').addEventListener('change', (e) => { $('#rp-from').disabled = $('#rp-to').disabled = e.target.checked })
     const period = () => {
+      if ($('#rp-allp').checked) return {}
       const from = $('#rp-from').value, to = $('#rp-to').value
       if (!from || !to || from > to) { UI.message('فترة غير صحيحة'); return null }
       return { from, to }

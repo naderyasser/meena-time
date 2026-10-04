@@ -135,6 +135,17 @@ const before2 = mock.posted.length
 await p.evaluate(() => WebSync.sync({ quiet: true }))
 check('endpoint: nothing re-sent', mock.posted.length === before2)
 
+// ── old site punches (before the 120-day first pull) come down only via «سحب كل الحركات» ──
+mock.db['Employee Checkin'].push({ name: 'CHK-OLD', employee: 'HR-EMP-00001', time: '2024-03-10 08:00:00', modified: '2024-03-10 08:00:01.000000' })
+await p.evaluate(() => WebSync.sync({ quiet: true }))
+check('history: old site punch not pulled by a normal sync', !(await n("SELECT COUNT(*) n FROM punches WHERE web_id = 'CHK-OLD'")))
+await menu('الإعدادات', 'الربط بالموقع')
+await dlgBtn('سحب كل الحركات').click(); await p.waitForTimeout(800)
+check('history: «سحب كل الحركات» pulls it', (await n("SELECT COUNT(*) n FROM punches WHERE web_id = 'CHK-OLD'")) === 1, await okMsg())
+const total = await n('SELECT COUNT(*) n FROM punches')
+await p.evaluate(() => WebSync.sync({ quiet: true }))
+check('history: next sync is incremental, no duplicates', (await n('SELECT COUNT(*) n FROM punches')) === total)
+
 // ── locked while linked ──
 await menu('البيانات الأساسية', 'الإدارات والأقسام')
 const w = p.locator('.win', { has: p.locator('.cap', { hasText: 'قوائم الأقسام والإدارات' }) }).last()

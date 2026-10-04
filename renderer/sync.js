@@ -84,6 +84,15 @@ const WebSync = {
     }
   },
 
+  // «سحب كل الحركات من الموقع»: forget the incremental cursor and pull every
+  // site punch regardless of date (the first link only takes the last 120 days)
+  async pullAllHistory() {
+    this.setMeta('web_checkins_since', '2000-01-01')
+    this.setMeta('web_checkins_cursor', '')
+    DB.audit('سحب كل الحركات من الموقع', '')
+    return this.sync()
+  },
+
   async fetchAll() {
     // punches: first time the last 120 days, then everything created or edited on the site since
     // the last pull (by the site's own clock) — so late / back-dated / corrected punches are caught too
@@ -392,7 +401,7 @@ async function openWebLink() {
   await UI.dialog({
     head: 'الربط بالموقع', width: 520,
     bodyHtml: `<div style="flex:1;display:flex;flex-direction:column;gap:8px">
-      <div style="font-size:12px">عند الربط يصبح الموقع هو مصدر البيانات: الموظفين والإدارات والدوامات والعطلات والإجازات تأتي منه، وحركات البصمة المقروءة هنا تُرفع إليه. تتم المزامنة تلقائياً كل 10 دقائق.</div>
+      <div style="font-size:12px">عند الربط يصبح الموقع هو مصدر البيانات: الموظفين والإدارات والدوامات والعطلات والإجازات تأتي منه، وحركات البصمة المقروءة هنا تُرفع إليه. تتم المزامنة تلقائياً كل 10 دقائق. عند الربط تُسحب حركات آخر 120 يوماً فقط؛ «سحب كل الحركات» يسحب كل الحركات القديمة الموجودة على الموقع.</div>
       <div class="fields" style="grid-template-columns:120px 1fr">
         <label>رابط الموقع</label><input type="text" id="wl-url" dir="ltr" placeholder="https://tamken3.base.meena.sa" value="${UI.esc(cfg.url || '')}">
         <label>API Key</label><input type="text" id="wl-key" dir="ltr" value="${UI.esc(cfg.key || '')}">
@@ -431,6 +440,7 @@ async function openWebLink() {
         await WebSync.sync()
       } },
       { label: 'مزامنة الآن', icon: 'undo', onClick: async (d) => { if (!cfg.linked) return d.error('احفظ بيانات الربط أولاً'); d.close(true); await WebSync.sync() } },
+      { label: 'سحب كل الحركات', icon: 'undo', onClick: async (d) => { if (!cfg.linked) return d.error('احفظ بيانات الربط أولاً'); d.close(true); await WebSync.pullAllHistory() } },
       { label: 'الغاء الربط', icon: 'del', onClick: async (d) => {
         if (!cfg.linked) return d.close(false)
         await window.bridge.webSetConfig(null)
